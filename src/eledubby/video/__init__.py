@@ -3,4 +3,4 @@
 
 from .remuxer import VideoRemuxer
 
-__all__ = ['VideoRemuxer']
+__all__ = ["VideoRemuxer"]

@@ -4,4 +4,4 @@
 from .progress import ProgressTracker
 from .temp_manager import TempFileManager
 
-__all__ = ['ProgressTracker', 'TempFileManager']
+__all__ = ["ProgressTracker", "TempFileManager"]

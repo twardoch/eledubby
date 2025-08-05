@@ -8,7 +8,7 @@ dynamic = ["version"]
 description = "Voice dubbing tool using ElevenLabs API for speech-to-speech conversion"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 authors = [
     { name = "Adam Twardoch", email = "adam+github@twardoch.com" },
 ]
@@ -28,11 +28,12 @@ classifiers = [
     "Topic :: Multimedia :: Video :: Conversion",
 ]
 dependencies = [
-    "elevenlabs>=1.0.0",
+    "elevenlabs>=2.8.1",
     "python-dotenv>=1.0.0",
-    "rich>=13.0.0",
-    "numpy>=1.20.0",
+    "rich>=14.1.0",
+    "numpy>=2.3.2",
     "scipy>=1.7.0",
+    "fire>=0.7.0",
 ]
 
 [project.urls]
@@ -42,7 +43,7 @@ Repository = "https://github.com/twardoch/eledubby"
 Issues = "https://github.com/twardoch/eledubby/issues"
 
 [project.scripts]
-eledubby = "eledubby.adamdubpy:main"
+eledubby = "eledubby.__main__:cli"
 
 [tool.hatch.version]
 source = "vcs"
@@ -64,13 +65,13 @@ packages = ["src/eledubby"]
 dev-dependencies = [
     "ruff>=0.1.0",
     "mypy>=1.0.0",
-    "pytest>=7.0.0",
+    "pytest>=8.4.1",
     "pytest-cov>=4.0.0",
 ]
 
 [tool.ruff]
 line-length = 100
-target-version = "py38"
+target-version = "py312"
 extend-include = ["*.pyi"]
 
 [tool.ruff.lint]
@@ -98,7 +99,7 @@ ignore = [
 known-first-party = ["eledubby"]
 
 [tool.mypy]
-python_version = "3.8"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
