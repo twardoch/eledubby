@@ -1,0 +1,1159 @@
+Project Structure:
+📁 eledubby
+├── 📁 src
+│   └── 📁 eledubby
+│       ├── 📁 api
+│       │   ├── 📄 __init__.py
+│       │   └── 📄 elevenlabs_client.py
+│       ├── 📁 audio
+│       │   ├── 📄 __init__.py
+│       │   ├── 📄 analyzer.py
+│       │   ├── 📄 extractor.py
+│       │   ├── 📄 processor.py
+│       │   └── 📄 segmenter.py
+│       ├── 📁 utils
+│       │   ├── 📄 __init__.py
+│       │   ├── 📄 progress.py
+│       │   └── 📄 temp_manager.py
+│       ├── 📁 video
+│       │   ├── 📄 __init__.py
+│       │   └── 📄 remuxer.py
+│       ├── 📄 __init__.py
+│       ├── 📄 __main__.py
+│       └── 📄 eledubby.py
+├── 📄 .gitignore
+├── 📄 LICENSE
+├── 📄 publish.sh
+├── 📄 pyproject.toml
+└── 📄 README.md
+
+
+<documents>
+<document index="1">
+<source>.gitignore</source>
+<document_content>
+
+__pycache__/
+__pypackages__/
+.cache
+.coverage
+.coverage.*
+.dmypy.json
+.DS_Store
+.eggs/
+.env
+.hypothesis/
+.idea/
+.installed.cfg
+.ipynb_checkpoints
+.mypy_cache/
+.nox/
+.pdm-build/
+.pdm-python
+.pdm.toml
+.pybuilder/
+.pyre/
+.pytest_cache/
+.Python
+.python-version
+.pytype/
+.ropeproject
+.ruff_cache/
+.scrapy
+.spyderproject
+.spyproject
+.tox/
+.venv
+.vscode/
+.webassets-cache
+*.bak
+*.cover
+*.egg
+*.egg-info/
+*.log
+*.m4a
+*.manifest
+*.mo
+*.mp3
+*.mp4
+*.pot
+*.py,cover
+*.py[cod]
+*.sage.py
+*.so
+*.spec
+*.swp
+*.temp
+*.tmp
+*.wav
+*~
+*$py.class
+/site
+build/
+celerybeat-schedule
+celerybeat.pid
+cover/
+coverage.xml
+cython_debug/
+db.sqlite3
+db.sqlite3-journal
+develop-eggs/
+dist/
+dmypy.json
+docs/_build/
+downloads/
+eggs/
+ehthumbs.db
+env.bak/
+env/
+ENV/
+htmlcov/
+instance/
+ipython_config.py
+lib/
+lib64/
+local_settings.py
+MANIFEST
+nosetests.xml
+output/
+parts/
+pip-delete-this-directory.txt
+pip-log.txt
+Pipfile.lock
+poetry.lock
+profile_default/
+sdist/
+share/python-wheels/
+src/eledubby/_version.py
+target/
+temp/
+Thumbs.db
+uv.lock
+var/
+venv.bak/
+venv/
+wheels/
+</document_content>
+</document>
+
+<document index="2">
+<source>LICENSE</source>
+<document_content>
+MIT License
+
+Copyright (c) 2025 Adam Twardoch
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+</document_content>
+</document>
+
+<document index="3">
+<source>README.md</source>
+<document_content>
+# Eledubby
+
+[![PyPI version](https://badge.fury.io/py/eledubby.svg)](https://badge.fury.io/py/eledubby)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+
+**Eledubby** is a Python tool for automatic voice dubbing of videos using the ElevenLabs API. It performs speech-to-speech conversion, allowing you to replace the original voice in a video with a different voice while preserving timing and synchronization.
+
+## 1. Features
+
+- 🎥 **Automatic voice dubbing** - Replace voices in videos with high-quality AI voices
+- 🎯 **Timing preservation** - Maintains original timing by intelligently padding or cropping audio
+- 🔊 **Smart audio segmentation** - Splits audio into optimal segments based on silence detection
+- 🚀 **Batch processing** - Processes multiple segments in parallel for faster results
+- 📊 **Progress tracking** - Real-time progress updates with detailed status information
+- 🛡️ **Error resilience** - Automatic retries and graceful error handling
+- 🎛️ **Customizable parameters** - Fine-tune silence detection and segmentation settings
+
+## 2. Table of Contents
+
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Usage](#usage)
+- [How It Works](#how-it-works)
+- [Architecture](#architecture)
+- [Configuration](#configuration)
+- [API Reference](#api-reference)
+- [Contributing](#contributing)
+- [License](#license)
+
+## 3. Installation
+
+### 3.1. Prerequisites
+
+- Python 3.8 or higher
+- [FFmpeg](https://ffmpeg.org/) installed and available in your system PATH
+- An [ElevenLabs API key](https://elevenlabs.io/)
+
+### 3.2. Install from PyPI
+
+```bash
+pip install eledubby
+```
+
+### 3.3. Install from Source
+
+```bash
+git clone https://github.com/twardoch/eledubby.git
+cd eledubby
+pip install -e .
+```
+
+### 3.4. Development Installation
+
+```bash
+git clone https://github.com/twardoch/eledubby.git
+cd eledubby
+uv venv
+uv sync
+```
+
+## 4. Quick Start
+
+1. **Set up your ElevenLabs API key:**
+
+   Create a `.env` file in your project directory:
+   ```bash
+   echo "ELEVENLABS_API_KEY=your_api_key_here" > .env
+   ```
+
+   Or set it as an environment variable:
+   ```bash
+   export ELEVENLABS_API_KEY=your_api_key_here
+   ```
+
+2. **Run eledubby on a video:**
+
+   ```bash
+   eledubby --input video.mp4 --voice voice_id --output dubbed_video.mp4
+   ```
+
+   To use the default voice:
+   ```bash
+   eledubby --input video.mp4 --output dubbed_video.mp4
+   ```
+
+## 5. Usage
+
+### 5.1. Command Line Interface
+
+```bash
+eledubby [OPTIONS]
+```
+
+#### 5.1.1. Options
+
+- `--input, -i` (required): Path to the input video file
+- `--output, -o` (required): Path to the output video file
+- `--voice, -v`: ElevenLabs voice ID (default: `iBR3vm0M6ImfaxXsPgxi`)
+- `--silence-threshold`: Silence detection threshold in dB (default: -40)
+- `--min-silence-duration`: Minimum silence duration in seconds (default: 0.5)
+- `--min-segment-duration`: Minimum segment duration in seconds (default: 10)
+- `--max-segment-duration`: Maximum segment duration in seconds (default: 20)
+- `--padding-duration`: Padding duration for segments in seconds (default: 0.1)
+- `--model`: ElevenLabs model to use (default: `eleven_multilingual_v2`)
+- `--stability`: Voice stability (0.0-1.0, default: 0.5)
+- `--similarity-boost`: Voice similarity boost (0.0-1.0, default: 0.75)
+- `--max-workers`: Maximum number of parallel workers (default: 3)
+- `--verbose, -v`: Enable verbose logging
+
+#### 5.1.2. Examples
+
+Basic usage with custom voice:
+```bash
+eledubby -i interview.mp4 -v rachel_voice_id -o interview_dubbed.mp4
+```
+
+With custom parameters:
+```bash
+eledubby -i podcast.mp4 -o podcast_dubbed.mp4 \
+  --silence-threshold -35 \
+  --min-segment-duration 8 \
+  --max-segment-duration 15 \
+  --verbose
+```
+
+### 5.2. Python API
+
+```python
+from eledubby import process_video
+
+# Basic usage
+process_video(
+    input_path="video.mp4",
+    output_path="dubbed_video.mp4",
+    voice_id="voice_id_here"
+)
+
+# With custom parameters
+process_video(
+    input_path="video.mp4",
+    output_path="dubbed_video.mp4",
+    voice_id="voice_id_here",
+    silence_threshold=-35,
+    min_segment_duration=8,
+    max_segment_duration=15,
+    model="eleven_multilingual_v2",
+    stability=0.6,
+    similarity_boost=0.8
+)
+```
+
+## 6. How It Works
+
+Eledubby uses a sophisticated pipeline to perform voice dubbing while maintaining synchronization:
+
+### 6.1. **Audio Extraction**
+   - Extracts audio track from the input video using FFmpeg
+   - Preserves original audio format and quality settings
+
+### 6.2. **Silence Detection & Analysis**
+   - Analyzes the audio waveform to detect periods of silence
+   - Uses configurable threshold (dB) and minimum duration parameters
+   - Creates a silence map for intelligent segmentation
+
+### 6.3. **Smart Segmentation**
+   - Splits audio into segments between 10-20 seconds (configurable)
+   - Finds optimal split points at the longest silence within each window
+   - Scores silence periods based on both duration and silence level
+   - Ensures segments are within the acceptable duration range
+
+### 6.4. **Speech-to-Speech Conversion**
+   - Sends each segment to ElevenLabs API for voice conversion
+   - Uses the specified voice ID and model parameters
+   - Processes multiple segments in parallel for efficiency
+
+### 6.5. **Timing Preservation**
+   - Compares the duration of converted segments with originals
+   - Pads shorter segments with silence to match original timing
+   - Crops longer segments if necessary (with intelligent trimming)
+   - Maintains frame-accurate synchronization
+
+### 6.6. **Audio Reassembly**
+   - Concatenates all processed segments in order
+   - Ensures seamless transitions between segments
+   - Produces a final audio track with exact original duration
+
+### 6.7. **Video Remuxing**
+   - Replaces the original audio track with the dubbed version
+   - Preserves all video streams and metadata
+   - Outputs the final dubbed video file
+
+## 7. Architecture
+
+The project is organized into modular components:
+
+```
+eledubby/
+├── api/               # ElevenLabs API integration
+│   └── elevenlabs_client.py
+├── audio/            # Audio processing modules
+│   ├── analyzer.py   # Silence detection and analysis
+│   ├── extractor.py  # Audio extraction from video
+│   ├── processor.py  # Main audio processing pipeline
+│   └── segmenter.py  # Audio segmentation logic
+├── video/            # Video processing modules
+│   └── remuxer.py    # Video remuxing operations
+├── utils/            # Utility modules
+│   ├── progress.py   # Progress tracking
+│   └── temp_manager.py # Temporary file management
+└── adamdubpy.py     # Main CLI entry point
+```
+
+### 7.1. Key Components
+
+- **ElevenLabsClient**: Manages API communication with retry logic and error handling
+- **AudioAnalyzer**: Performs silence detection using scipy signal processing
+- **AudioSegmenter**: Implements the intelligent segmentation algorithm
+- **AudioProcessor**: Orchestrates the entire audio processing pipeline
+- **VideoRemuxer**: Handles video operations using FFmpeg
+- **ProgressTracker**: Provides real-time progress updates using Rich
+
+## 8. Configuration
+
+### 8.1. Environment Variables
+
+- `ELEVENLABS_API_KEY`: Your ElevenLabs API key (required)
+- `ELEDUBBY_TEMP_DIR`: Custom temporary directory (optional)
+- `ELEDUBBY_MAX_RETRIES`: Maximum API retry attempts (default: 3)
+- `ELEDUBBY_RETRY_DELAY`: Delay between retries in seconds (default: 1)
+
+### 8.2. Voice IDs
+
+You can find available voice IDs in your ElevenLabs account or use the API to list them:
+
+```python
+from elevenlabs import voices
+
+# List all available voices
+for voice in voices():
+    print(f"{voice.voice_id}: {voice.name}")
+```
+
+### 8.3. Models
+
+Supported ElevenLabs models:
+- `eleven_multilingual_v2` (default) - Best quality, supports multiple languages
+- `eleven_monolingual_v1` - English only, faster processing
+- `eleven_turbo_v2` - Fastest processing, good quality
+
+## 9. API Reference
+
+### 9.1. Main Functions
+
+#### 9.1.1. `process_video()`
+
+```python
+def process_video(
+    input_path: str,
+    output_path: str,
+    voice_id: str = os.getenv("ELEVENLABS_VOICE_ID"),
+    silence_threshold: float = -40,
+    min_silence_duration: float = 0.5,
+    min_segment_duration: float = 10,
+    max_segment_duration: float = 20,
+    padding_duration: float = 0.1,
+    model: str = "eleven_multilingual_v2",
+    stability: float = 0.5,
+    similarity_boost: float = 0.75,
+    max_workers: int = 3,
+    api_key: Optional[str] = None
+) -> None:
+    """
+    Process a video file by replacing its audio with a dubbed version.
+    
+    Args:
+        input_path: Path to input video file
+        output_path: Path to output video file
+        voice_id: ElevenLabs voice ID to use
+        silence_threshold: Threshold for silence detection in dB
+        min_silence_duration: Minimum duration of silence in seconds
+        min_segment_duration: Minimum segment duration in seconds
+        max_segment_duration: Maximum segment duration in seconds
+        padding_duration: Padding to add to segments in seconds
+        model: ElevenLabs model to use
+        stability: Voice stability parameter (0.0-1.0)
+        similarity_boost: Voice similarity boost parameter (0.0-1.0)
+        max_workers: Maximum number of parallel workers
+        api_key: ElevenLabs API key (uses env var if not provided)
+    """
+```
+
+### 9.2. Module Classes
+
+#### 9.2.1. `AudioProcessor`
+
+Main class for audio processing operations:
+
+```python
+processor = AudioProcessor(
+    api_key="your_api_key",
+    voice_id="voice_id",
+    model="eleven_multilingual_v2",
+    max_workers=3
+)
+
+# Process audio file
+processor.process_audio(
+    input_audio_path="audio.wav",
+    output_audio_path="dubbed_audio.wav"
+)
+```
+
+#### 9.2.2. `AudioAnalyzer`
+
+Analyzes audio for silence detection:
+
+```python
+analyzer = AudioAnalyzer(
+    silence_threshold=-40,
+    min_silence_duration=0.5
+)
+
+# Detect silence periods
+silence_periods = analyzer.detect_silence(audio_data, sample_rate)
+```
+
+## 10. Why Eledubby?
+
+### 10.1. The Problem
+
+Traditional dubbing requires voice actors, recording studios, and extensive post-production work. Even with modern AI voice synthesis, maintaining synchronization between video and dubbed audio remains challenging.
+
+### 10.2. The Solution
+
+Eledubby automates the entire dubbing process while solving key synchronization challenges:
+
+1. **Intelligent Segmentation**: Instead of processing the entire audio at once (which can cause drift), Eledubby splits audio at natural pause points.
+
+2. **Timing Preservation**: Each segment is processed individually and adjusted to match the original duration, preventing accumulative timing errors.
+
+3. **Quality Optimization**: By working with smaller segments, the AI voice synthesis produces more consistent and natural results.
+
+4. **Parallel Processing**: Multiple segments are processed simultaneously, significantly reducing total processing time.
+
+### 10.3. Technical Approach
+
+The core innovation is the silence-based segmentation algorithm:
+
+```python
+# Pseudocode for segmentation logic
+for window in sliding_windows(audio, size=20s, step=10s):
+    silence_periods = detect_silence(window)
+    best_split = max(silence_periods, key=lambda s: s.duration * s.silence_level)
+    segments.append(split_at(audio, best_split))
+```
+
+This ensures:
+- Natural breaking points that don't cut off speech
+- Consistent segment sizes for reliable API processing
+- Flexibility to handle various speech patterns
+
+## 11. Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
+
+### 11.1. Development Setup
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/twardoch/eledubby.git
+   cd eledubby
+   ```
+
+2. Create a virtual environment:
+   ```bash
+   uv venv
+   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+   ```
+
+3. Install development dependencies:
+   ```bash
+   uv sync
+   ```
+
+4. Run tests:
+   ```bash
+   pytest
+   ```
+
+5. Run linting:
+   ```bash
+   ruff check .
+   mypy .
+   ```
+
+### 11.2. Code Style
+
+- Follow PEP 8 guidelines
+- Use type hints for all function signatures
+- Add docstrings to all public functions and classes
+- Write tests for new functionality
+
+## 12. License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 13. Acknowledgments
+
+- [ElevenLabs](https://elevenlabs.io/) for providing the amazing voice synthesis API
+- [FFmpeg](https://ffmpeg.org/) for reliable video/audio processing
+- [Rich](https://github.com/Textualize/rich) for beautiful terminal output
+- The Python community for excellent libraries and tools
+
+## 14. Troubleshooting
+
+### 14.1. Common Issues
+
+1. **FFmpeg not found**
+   - Ensure FFmpeg is installed: `ffmpeg -version`
+   - Add FFmpeg to your system PATH
+
+2. **API key errors**
+   - Verify your API key is correct
+   - Check your ElevenLabs account has sufficient credits
+
+3. **Memory issues with large videos**
+   - Process videos in smaller chunks
+   - Reduce the number of parallel workers
+   - Use a machine with more RAM
+
+4. **Audio sync issues**
+   - Try adjusting the padding duration
+   - Experiment with different segment durations
+   - Check that the input video has constant frame rate
+
+### 14.2. Getting Help
+
+- Check the [Issues](https://github.com/twardoch/eledubby/issues) page
+- Create a new issue with detailed information about your problem
+- Include error messages, system information, and sample files if possible
+
+---
+
+Made with ❤️ by [Adam Twardoch](https://github.com/twardoch)
+</document_content>
+</document>
+
+<document index="4">
+<source>publish.sh</source>
+<document_content>
+#!/usr/bin/env bash
+cd $(dirname "$0")
+
+uvx hatch clean
+uvx codetoprompt \
+    --compress \
+    --output "./llms.txt" \
+    --respect-gitignore \
+    --cxml \
+    --exclude "*.svg,.specstory,ref,testdata,*.lock,llms.txt" \
+    "."
+gitnextver .
+uvx hatch build
+uvx hatch publish
+
+</document_content>
+</document>
+
+<document index="5">
+<source>pyproject.toml</source>
+<document_content>
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "eledubby"
+dynamic = ["version"]
+description = "Voice dubbing tool using ElevenLabs API for speech-to-speech conversion"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+authors = [
+    { name = "Adam Twardoch", email = "adam+github@twardoch.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Sound/Audio :: Speech",
+    "Topic :: Multimedia :: Video :: Conversion",
+]
+dependencies = [
+    "elevenlabs>=2.8.1",
+    "python-dotenv>=1.0.0",
+    "rich>=14.1.0",
+    "numpy>=2.3.2",
+    "scipy>=1.7.0",
+    "fire>=0.7.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/twardoch/eledubby"
+Documentation = "https://github.com/twardoch/eledubby#readme"
+Repository = "https://github.com/twardoch/eledubby"
+Issues = "https://github.com/twardoch/eledubby/issues"
+
+[project.scripts]
+eledubby = "eledubby.__main__:cli"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/eledubby/_version.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/eledubby"]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "pytest>=8.4.1",
+    "pytest-cov>=4.0.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-include = ["*.pyi"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long
+    "B008",   # do not perform function calls in argument defaults
+    "W191",   # indentation contains tabs
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["eledubby"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "elevenlabs.*",
+    "scipy.*",
+    "numpy.*",
+]
+ignore_missing_imports = true
+</document_content>
+</document>
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/__init__.py
+# Language: python
+
+from ._version import __version__, __version_tuple__
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/__main__.py
+# Language: python
+
+import fire
+from eledubby.eledubby import main
+
+def cli(()):
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/api/__init__.py
+# Language: python
+
+from .elevenlabs_client import ElevenLabsClient
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/api/elevenlabs_client.py
+# Language: python
+
+import os
+import time
+from elevenlabs import ElevenLabs
+from elevenlabs.errors import (
+    BadRequestError,
+    ForbiddenError,
+    NotFoundError,
+    UnprocessableEntityError,
+)
+from loguru import logger
+
+class ElevenLabsClient:
+    """Wrapper for ElevenLabs API with retry logic and error handling."""
+    def __init__((self, api_key: str | None = None, max_retries: int = 3)):
+        """Initialize ElevenLabs client."""
+    def speech_to_speech((
+        self,
+        audio_path: str,
+        voice_id: str,
+        output_path: str,
+        model_id: str = "eleven_english_sts_v2",
+    )) -> str:
+        """Convert speech to speech with different voice."""
+    def validate_voice_id((self, voice_id: str)) -> bool:
+        """Validate if voice ID exists."""
+    def list_voices((self)) -> list:
+        """List available voices."""
+
+def __init__((self, api_key: str | None = None, max_retries: int = 3)):
+    """Initialize ElevenLabs client."""
+
+def speech_to_speech((
+        self,
+        audio_path: str,
+        voice_id: str,
+        output_path: str,
+        model_id: str = "eleven_english_sts_v2",
+    )) -> str:
+    """Convert speech to speech with different voice."""
+
+def validate_voice_id((self, voice_id: str)) -> bool:
+    """Validate if voice ID exists."""
+
+def list_voices((self)) -> list:
+    """List available voices."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/__init__.py
+# Language: python
+
+from .analyzer import SilenceAnalyzer
+from .extractor import AudioExtractor
+from .processor import AudioProcessor
+from .segmenter import AudioSegmenter
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/analyzer.py
+# Language: python
+
+import numpy as np
+from loguru import logger
+from scipy.io import wavfile
+
+class SilenceAnalyzer:
+    """Analyzes audio for silence detection and optimal split points."""
+    def __init__((self, silence_threshold_db: float = -40)):
+        """Initialize silence analyzer."""
+    def analyze((
+        self, audio_path: str, min_duration: float = 10.0, max_duration: float = 20.0
+    )) -> list[tuple[float, float]]:
+        """Analyze audio and find optimal segment boundaries."""
+    def _calculate_silence_scores((
+        self, audio_data: np.ndarray, sample_rate: int
+    )) -> list[tuple[float, float]]:
+        """Calculate silence scores throughout the audio."""
+    def _find_optimal_segments((
+        self,
+        silence_scores: list[tuple[float, float]],
+        sample_rate: int,  # noqa: ARG002
+        min_duration: float,
+        max_duration: float,
+        total_duration: float,
+    )) -> list[tuple[float, float]]:
+        """Find optimal segment boundaries based on silence scores."""
+
+def __init__((self, silence_threshold_db: float = -40)):
+    """Initialize silence analyzer."""
+
+def analyze((
+        self, audio_path: str, min_duration: float = 10.0, max_duration: float = 20.0
+    )) -> list[tuple[float, float]]:
+    """Analyze audio and find optimal segment boundaries."""
+
+def _calculate_silence_scores((
+        self, audio_data: np.ndarray, sample_rate: int
+    )) -> list[tuple[float, float]]:
+    """Calculate silence scores throughout the audio."""
+
+def _find_optimal_segments((
+        self,
+        silence_scores: list[tuple[float, float]],
+        sample_rate: int,  # noqa: ARG002
+        min_duration: float,
+        max_duration: float,
+        total_duration: float,
+    )) -> list[tuple[float, float]]:
+    """Find optimal segment boundaries based on silence scores."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/extractor.py
+# Language: python
+
+import subprocess
+from loguru import logger
+
+class AudioExtractor:
+    """Handles audio extraction from video files."""
+    def __init__((self, sample_rate: int = 16000)):
+        """Initialize audio extractor."""
+    def extract((self, video_path: str, output_path: str)) -> str:
+        """Extract audio from video file."""
+    def _get_duration((self, audio_path: str)) -> float:
+        """Get duration of audio file in seconds."""
+
+def __init__((self, sample_rate: int = 16000)):
+    """Initialize audio extractor."""
+
+def extract((self, video_path: str, output_path: str)) -> str:
+    """Extract audio from video file."""
+
+def _get_duration((self, audio_path: str)) -> float:
+    """Get duration of audio file in seconds."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/processor.py
+# Language: python
+
+import os
+import subprocess
+from loguru import logger
+
+class AudioProcessor:
+    """Handles audio processing for timing preservation."""
+    def measure_duration((self, audio_path: str)) -> float:
+        """Measure precise duration of audio file."""
+    def adjust_duration((self, audio_path: str, target_duration: float, output_path: str)) -> str:
+        """Adjust audio duration to match target."""
+    def _pad_audio((self, audio_path: str, pad_duration: float, output_path: str)) -> str:
+        """Pad audio with silence."""
+    def _trim_audio((self, audio_path: str, target_duration: float, output_path: str)) -> str:
+        """Trim audio to target duration."""
+    def normalize_audio((self, audio_path: str, output_path: str, target_db: float = -23.0)) -> str:
+        """Normalize audio levels."""
+
+def measure_duration((self, audio_path: str)) -> float:
+    """Measure precise duration of audio file."""
+
+def adjust_duration((self, audio_path: str, target_duration: float, output_path: str)) -> str:
+    """Adjust audio duration to match target."""
+
+def _pad_audio((self, audio_path: str, pad_duration: float, output_path: str)) -> str:
+    """Pad audio with silence."""
+
+def _trim_audio((self, audio_path: str, target_duration: float, output_path: str)) -> str:
+    """Trim audio to target duration."""
+
+def normalize_audio((self, audio_path: str, output_path: str, target_db: float = -23.0)) -> str:
+    """Normalize audio levels."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/segmenter.py
+# Language: python
+
+import os
+import subprocess
+from loguru import logger
+
+class AudioSegmenter:
+    """Handles audio segmentation based on timestamps."""
+    def segment((
+        self, audio_path: str, segments: list[tuple[float, float]], output_dir: str
+    )) -> list[str]:
+        """Split audio into segments based on timestamps."""
+    def concatenate((self, segment_paths: list[str], output_path: str)) -> str:
+        """Concatenate audio segments back together."""
+
+def segment((
+        self, audio_path: str, segments: list[tuple[float, float]], output_dir: str
+    )) -> list[str]:
+    """Split audio into segments based on timestamps."""
+
+def concatenate((self, segment_paths: list[str], output_path: str)) -> str:
+    """Concatenate audio segments back together."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/eledubby.py
+# Language: python
+
+import os
+import sys
+import time
+from pathlib import Path
+from dotenv import load_dotenv
+from loguru import logger
+from rich.console import Console
+from .api import ElevenLabsClient
+from .audio import AudioExtractor, AudioProcessor, AudioSegmenter, SilenceAnalyzer
+from .utils import ProgressTracker, TempFileManager
+from .video import VideoRemuxer
+import subprocess
+
+class EleDubby:
+    """Main class for video dubbing functionality."""
+    def __init__((self, verbose: bool = False)):
+        """Initialize the dubbing tool."""
+    def _setup_logging((self)):
+        """Configure logging based on verbose flag."""
+    def _check_dependencies((self)):
+        """Check for required system dependencies."""
+    def process((self, input: str, voice: str = DEFAULT_VOICE_ID, output: str | None = None)):
+        """Process a video file with voice dubbing."""
+
+def __init__((self, verbose: bool = False)):
+    """Initialize the dubbing tool."""
+
+def _setup_logging((self)):
+    """Configure logging based on verbose flag."""
+
+def _check_dependencies((self)):
+    """Check for required system dependencies."""
+
+def process((self, input: str, voice: str = DEFAULT_VOICE_ID, output: str | None = None)):
+    """Process a video file with voice dubbing."""
+
+def main((
+    input: str | Path,
+    voice: str = DEFAULT_VOICE_ID,
+    output: str | Path | None = None,
+    verbose: bool = False,
+)):
+    """eledubby - Voice dubbing tool using ElevenLabs speech-to-speech API."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/utils/__init__.py
+# Language: python
+
+from .progress import ProgressTracker
+from .temp_manager import TempFileManager
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/utils/progress.py
+# Language: python
+
+from contextlib import contextmanager
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    TimeRemainingColumn,
+)
+
+class ProgressTracker:
+    """Unified progress tracking for the application."""
+    def __init__((self)):
+        """Initialize progress tracker."""
+    def print_summary((self, stats: dict)):
+        """Print processing summary."""
+
+def __init__((self)):
+    """Initialize progress tracker."""
+
+def track_segments((self, total: int, description: str = "Processing segments")):
+    """Track progress for segment processing."""
+
+def update((advance: int = 1, description: str | None = None)):
+
+def track_file_operation((self, description: str)):
+    """Track a file operation with spinner."""
+
+def print_summary((self, stats: dict)):
+    """Print processing summary."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/utils/temp_manager.py
+# Language: python
+
+import os
+import shutil
+import tempfile
+from contextlib import contextmanager
+from loguru import logger
+
+class TempFileManager:
+    """Manages temporary files and directories."""
+    def __init__((self, prefix: str = "adamdubpy_")):
+        """Initialize temp file manager."""
+    def cleanup_directory((self, directory: str)):
+        """Clean up a temporary directory."""
+    def cleanup_all((self)):
+        """Clean up all tracked temporary directories."""
+    def get_temp_path((self, directory: str, filename: str)) -> str:
+        """Get a path for a temporary file."""
+
+def __init__((self, prefix: str = "adamdubpy_")):
+    """Initialize temp file manager."""
+
+def temp_directory((self, cleanup: bool = True)):
+    """Create and manage a temporary directory."""
+
+def cleanup_directory((self, directory: str)):
+    """Clean up a temporary directory."""
+
+def cleanup_all((self)):
+    """Clean up all tracked temporary directories."""
+
+def get_temp_path((self, directory: str, filename: str)) -> str:
+    """Get a path for a temporary file."""
+
+def estimate_space_needed((video_path: str)) -> float:
+    """Estimate temporary space needed for processing."""
+
+def check_disk_space((path: str, required_gb: float)) -> bool:
+    """Check if enough disk space is available."""
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/video/__init__.py
+# Language: python
+
+from .remuxer import VideoRemuxer
+
+
+# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/video/remuxer.py
+# Language: python
+
+import subprocess
+from loguru import logger
+import json
+
+class VideoRemuxer:
+    """Handles video remuxing with new audio track."""
+    def remux((
+        self, video_path: str, audio_path: str, output_path: str, copy_video: bool = True
+    )) -> str:
+        """Replace audio track in video file."""
+    def _verify_output((self, output_path: str, original_path: str)) -> bool:
+        """Verify output video matches original duration."""
+    def _get_duration((self, video_path: str)) -> float:
+        """Get video duration in seconds."""
+    def extract_metadata((self, video_path: str)) -> dict:
+        """Extract video metadata."""
+
+def remux((
+        self, video_path: str, audio_path: str, output_path: str, copy_video: bool = True
+    )) -> str:
+    """Replace audio track in video file."""
+
+def _verify_output((self, output_path: str, original_path: str)) -> bool:
+    """Verify output video matches original duration."""
+
+def _get_duration((self, video_path: str)) -> float:
+    """Get video duration in seconds."""
+
+def extract_metadata((self, video_path: str)) -> dict:
+    """Extract video metadata."""
+
+
+</documents>

@@ -6,7 +6,7 @@
 
 **Eledubby** is a Python tool for automatic voice dubbing of videos using the ElevenLabs API. It performs speech-to-speech conversion, allowing you to replace the original voice in a video with a different voice while preserving timing and synchronization.
 
-## Features
+## 1. Features
 
 - 🎥 **Automatic voice dubbing** - Replace voices in videos with high-quality AI voices
 - 🎯 **Timing preservation** - Maintains original timing by intelligently padding or cropping audio
@@ -16,7 +16,7 @@
 - 🛡️ **Error resilience** - Automatic retries and graceful error handling
 - 🎛️ **Customizable parameters** - Fine-tune silence detection and segmentation settings
 
-## Table of Contents
+## 2. Table of Contents
 
 - [Installation](#installation)
 - [Quick Start](#quick-start)
@@ -28,21 +28,21 @@
 - [Contributing](#contributing)
 - [License](#license)
 
-## Installation
+## 3. Installation
 
-### Prerequisites
+### 3.1. Prerequisites
 
 - Python 3.8 or higher
 - [FFmpeg](https://ffmpeg.org/) installed and available in your system PATH
 - An [ElevenLabs API key](https://elevenlabs.io/)
 
-### Install from PyPI
+### 3.2. Install from PyPI
 
 ```bash
 pip install eledubby
 ```
 
-### Install from Source
+### 3.3. Install from Source
 
 ```bash
 git clone https://github.com/twardoch/eledubby.git
@@ -50,7 +50,7 @@ cd eledubby
 pip install -e .
 ```
 
-### Development Installation
+### 3.4. Development Installation
 
 ```bash
 git clone https://github.com/twardoch/eledubby.git
@@ -59,7 +59,7 @@ uv venv
 uv sync
 ```
 
-## Quick Start
+## 4. Quick Start
 
 1. **Set up your ElevenLabs API key:**
 
@@ -84,15 +84,15 @@ uv sync
    eledubby --input video.mp4 --output dubbed_video.mp4
    ```
 
-## Usage
+## 5. Usage
 
-### Command Line Interface
+### 5.1. Command Line Interface
 
 ```bash
 eledubby [OPTIONS]
 ```
 
-#### Options
+#### 5.1.1. Options
 
 - `--input, -i` (required): Path to the input video file
 - `--output, -o` (required): Path to the output video file
@@ -108,7 +108,7 @@ eledubby [OPTIONS]
 - `--max-workers`: Maximum number of parallel workers (default: 3)
 - `--verbose, -v`: Enable verbose logging
 
-#### Examples
+#### 5.1.2. Examples
 
 Basic usage with custom voice:
 ```bash
@@ -124,7 +124,7 @@ eledubby -i podcast.mp4 -o podcast_dubbed.mp4 \
   --verbose
 ```
 
-### Python API
+### 5.2. Python API
 
 ```python
 from eledubby import process_video
@@ -150,47 +150,47 @@ process_video(
 )
 ```
 
-## How It Works
+## 6. How It Works
 
 Eledubby uses a sophisticated pipeline to perform voice dubbing while maintaining synchronization:
 
-### 1. **Audio Extraction**
+### 6.1. **Audio Extraction**
    - Extracts audio track from the input video using FFmpeg
    - Preserves original audio format and quality settings
 
-### 2. **Silence Detection & Analysis**
+### 6.2. **Silence Detection & Analysis**
    - Analyzes the audio waveform to detect periods of silence
    - Uses configurable threshold (dB) and minimum duration parameters
    - Creates a silence map for intelligent segmentation
 
-### 3. **Smart Segmentation**
+### 6.3. **Smart Segmentation**
    - Splits audio into segments between 10-20 seconds (configurable)
    - Finds optimal split points at the longest silence within each window
    - Scores silence periods based on both duration and silence level
    - Ensures segments are within the acceptable duration range
 
-### 4. **Speech-to-Speech Conversion**
+### 6.4. **Speech-to-Speech Conversion**
    - Sends each segment to ElevenLabs API for voice conversion
    - Uses the specified voice ID and model parameters
    - Processes multiple segments in parallel for efficiency
 
-### 5. **Timing Preservation**
+### 6.5. **Timing Preservation**
    - Compares the duration of converted segments with originals
    - Pads shorter segments with silence to match original timing
    - Crops longer segments if necessary (with intelligent trimming)
    - Maintains frame-accurate synchronization
 
-### 6. **Audio Reassembly**
+### 6.6. **Audio Reassembly**
    - Concatenates all processed segments in order
    - Ensures seamless transitions between segments
    - Produces a final audio track with exact original duration
 
-### 7. **Video Remuxing**
+### 6.7. **Video Remuxing**
    - Replaces the original audio track with the dubbed version
    - Preserves all video streams and metadata
    - Outputs the final dubbed video file
 
-## Architecture
+## 7. Architecture
 
 The project is organized into modular components:
 
@@ -211,7 +211,7 @@ eledubby/
 └── adamdubpy.py     # Main CLI entry point
 ```
 
-### Key Components
+### 7.1. Key Components
 
 - **ElevenLabsClient**: Manages API communication with retry logic and error handling
 - **AudioAnalyzer**: Performs silence detection using scipy signal processing
@@ -220,16 +220,16 @@ eledubby/
 - **VideoRemuxer**: Handles video operations using FFmpeg
 - **ProgressTracker**: Provides real-time progress updates using Rich
 
-## Configuration
+## 8. Configuration
 
-### Environment Variables
+### 8.1. Environment Variables
 
 - `ELEVENLABS_API_KEY`: Your ElevenLabs API key (required)
 - `ELEDUBBY_TEMP_DIR`: Custom temporary directory (optional)
 - `ELEDUBBY_MAX_RETRIES`: Maximum API retry attempts (default: 3)
 - `ELEDUBBY_RETRY_DELAY`: Delay between retries in seconds (default: 1)
 
-### Voice IDs
+### 8.2. Voice IDs
 
 You can find available voice IDs in your ElevenLabs account or use the API to list them:
 
@@ -241,24 +241,24 @@ for voice in voices():
     print(f"{voice.voice_id}: {voice.name}")
 ```
 
-### Models
+### 8.3. Models
 
 Supported ElevenLabs models:
 - `eleven_multilingual_v2` (default) - Best quality, supports multiple languages
 - `eleven_monolingual_v1` - English only, faster processing
 - `eleven_turbo_v2` - Fastest processing, good quality
 
-## API Reference
+## 9. API Reference
 
-### Main Functions
+### 9.1. Main Functions
 
-#### `process_video()`
+#### 9.1.1. `process_video()`
 
 ```python
 def process_video(
     input_path: str,
     output_path: str,
-    voice_id: str = "iBR3vm0M6ImfaxXsPgxi",
+    voice_id: str = os.getenv("ELEVENLABS_VOICE_ID"),
     silence_threshold: float = -40,
     min_silence_duration: float = 0.5,
     min_segment_duration: float = 10,
@@ -290,9 +290,9 @@ def process_video(
     """
 ```
 
-### Module Classes
+### 9.2. Module Classes
 
-#### `AudioProcessor`
+#### 9.2.1. `AudioProcessor`
 
 Main class for audio processing operations:
 
@@ -311,7 +311,7 @@ processor.process_audio(
 )
 ```
 
-#### `AudioAnalyzer`
+#### 9.2.2. `AudioAnalyzer`
 
 Analyzes audio for silence detection:
 
@@ -325,13 +325,13 @@ analyzer = AudioAnalyzer(
 silence_periods = analyzer.detect_silence(audio_data, sample_rate)
 ```
 
-## Why Eledubby?
+## 10. Why Eledubby?
 
-### The Problem
+### 10.1. The Problem
 
 Traditional dubbing requires voice actors, recording studios, and extensive post-production work. Even with modern AI voice synthesis, maintaining synchronization between video and dubbed audio remains challenging.
 
-### The Solution
+### 10.2. The Solution
 
 Eledubby automates the entire dubbing process while solving key synchronization challenges:
 
@@ -343,7 +343,7 @@ Eledubby automates the entire dubbing process while solving key synchronization 
 
 4. **Parallel Processing**: Multiple segments are processed simultaneously, significantly reducing total processing time.
 
-### Technical Approach
+### 10.3. Technical Approach
 
 The core innovation is the silence-based segmentation algorithm:
 
@@ -360,11 +360,11 @@ This ensures:
 - Consistent segment sizes for reliable API processing
 - Flexibility to handle various speech patterns
 
-## Contributing
+## 11. Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request. For major changes, please open an issue first to discuss what you would like to change.
 
-### Development Setup
+### 11.1. Development Setup
 
 1. Clone the repository:
    ```bash
@@ -394,27 +394,27 @@ Contributions are welcome! Please feel free to submit a Pull Request. For major 
    mypy .
    ```
 
-### Code Style
+### 11.2. Code Style
 
 - Follow PEP 8 guidelines
 - Use type hints for all function signatures
 - Add docstrings to all public functions and classes
 - Write tests for new functionality
 
-## License
+## 12. License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Acknowledgments
+## 13. Acknowledgments
 
 - [ElevenLabs](https://elevenlabs.io/) for providing the amazing voice synthesis API
 - [FFmpeg](https://ffmpeg.org/) for reliable video/audio processing
 - [Rich](https://github.com/Textualize/rich) for beautiful terminal output
 - The Python community for excellent libraries and tools
 
-## Troubleshooting
+## 14. Troubleshooting
 
-### Common Issues
+### 14.1. Common Issues
 
 1. **FFmpeg not found**
    - Ensure FFmpeg is installed: `ffmpeg -version`
@@ -434,7 +434,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
    - Experiment with different segment durations
    - Check that the input video has constant frame rate
 
-### Getting Help
+### 14.2. Getting Help
 
 - Check the [Issues](https://github.com/twardoch/eledubby/issues) page
 - Create a new issue with detailed information about your problem

@@ -235,7 +235,7 @@ def main(
 
     Args:
         input: Path to input video file
-        voice: ElevenLabs voice ID to use for dubbing (default: iBR3vm0M6ImfaxXsPgxi)
+        voice: ElevenLabs voice ID to use for dubbing (default: ELEVENLABS_VOICE_ID environment variable)
         output: Path to output video file (default: input_dubbed.mp4)
         verbose: Enable verbose logging output
     """
