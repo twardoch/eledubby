@@ -15,6 +15,7 @@
 - 📊 **Progress tracking** - Real-time progress updates with detailed status information
 - 🛡️ **Error resilience** - Automatic retries and graceful error handling
 - 🎛️ **Customizable parameters** - Fine-tune silence detection and segmentation settings
+- 🎸 **VST3 Plugin Support** - Apply professional audio effects using VST3 plugins via Pedalboard
 
 ## 2. Table of Contents
 
@@ -84,59 +85,175 @@ uv sync
    eledubby --input video.mp4 --output dubbed_video.mp4
    ```
 
+   With audio post-processing:
+   ```bash
+   eledubby --input video.mp4 --output dubbed_video.mp4 --fx on
+   ```
+
 ## 5. Usage
 
 ### 5.1. Command Line Interface
 
+The package provides two main commands:
+
+#### 5.1.1. `dub` - Voice Dubbing with ElevenLabs
+
 ```bash
-eledubby [OPTIONS]
+eledubby dub [OPTIONS]
 ```
 
-#### 5.1.1. Options
+**Options:**
+- `--input` (required): Path to the input video or audio file
+- `--output`: Path to the output file (default: auto-generated)
+- `--voice`: ElevenLabs voice ID (default: ELEVENLABS_VOICE_ID environment variable)
+- `--fx`: Audio post-processing effects:
+  - `0`, `off`, or `False`: No post-processing
+  - `1`, `on`, or `True`: Use default config from `src/eledubby/config.toml`
+  - Path to TOML file: Use custom VST3 plugin configuration
+- `--seg_min`: Minimum segment duration in seconds (default: 10)
+- `--seg_max`: Maximum segment duration in seconds (default: 20)
+- `--verbose`: Enable verbose logging
 
-- `--input, -i` (required): Path to the input video file
-- `--output, -o` (required): Path to the output video file
-- `--voice, -v`: ElevenLabs voice ID (default: `iBR3vm0M6ImfaxXsPgxi`)
-- `--silence-threshold`: Silence detection threshold in dB (default: -40)
-- `--min-silence-duration`: Minimum silence duration in seconds (default: 0.5)
-- `--min-segment-duration`: Minimum segment duration in seconds (default: 10)
-- `--max-segment-duration`: Maximum segment duration in seconds (default: 20)
-- `--padding-duration`: Padding duration for segments in seconds (default: 0.1)
-- `--model`: ElevenLabs model to use (default: `eleven_multilingual_v2`)
-- `--stability`: Voice stability (0.0-1.0, default: 0.5)
-- `--similarity-boost`: Voice similarity boost (0.0-1.0, default: 0.75)
-- `--max-workers`: Maximum number of parallel workers (default: 3)
-- `--verbose, -v`: Enable verbose logging
+#### 5.1.2. `fx` - Audio Effects Only (No Dubbing)
 
-#### 5.1.2. Examples
-
-Basic usage with custom voice:
 ```bash
-eledubby -i interview.mp4 -v rachel_voice_id -o interview_dubbed.mp4
+eledubby fx [OPTIONS]
 ```
 
-With custom parameters:
+**Options:**
+- `--input` (required): Path to the input video or audio file
+- `--output`: Path to the output file (default: auto-generated with same format)
+- `--config`: Path to TOML config file for VST3 plugins (default: src/eledubby/config.toml)
+- `--verbose`: Enable verbose logging
+
+#### 5.1.3. Examples
+
+**Dubbing Examples:**
+
+Basic video dubbing:
 ```bash
-eledubby -i podcast.mp4 -o podcast_dubbed.mp4 \
-  --silence-threshold -35 \
-  --min-segment-duration 8 \
-  --max-segment-duration 15 \
-  --verbose
+eledubby dub --input interview.mp4 --voice rachel_voice_id --output interview_dubbed.mp4
+```
+
+Audio file dubbing (audio-to-audio):
+```bash
+eledubby dub --input podcast.mp3 --voice alex_voice_id --output podcast_dubbed.wav
+```
+
+With custom segment durations:
+```bash
+eledubby dub --input podcast.mp4 --output podcast_dubbed.mp4 \
+  --seg_min 8 --seg_max 15 --verbose
+```
+
+With audio post-processing:
+```bash
+eledubby dub --input video.mp4 --output enhanced_video.mp4 \
+  --fx ./my_effects.toml --verbose
+```
+
+**Effects-Only Examples:**
+
+Apply effects to video (no dubbing):
+```bash
+eledubby fx --input video.mp4 --output enhanced_video.mp4 \
+  --config ./voice_enhancement.toml
+```
+
+Apply effects to audio file:
+```bash
+eledubby fx --input recording.wav --output processed_recording.wav
+```
+
+Extract and process audio from video:
+```bash
+eledubby fx --input video.mp4 --output audio_only.wav \
+  --config ./mastering.toml
 ```
 
 ### 5.2. Python API
 
 ```python
-from eledubby import process_video
+from eledubby.eledubby import dub, fx
 
-# Basic usage
-process_video(
-    input_path="video.mp4",
-    output_path="dubbed_video.mp4",
-    voice_id="voice_id_here"
+# Basic video dubbing
+dub(
+    input="video.mp4",
+    output="dubbed_video.mp4",
+    voice="voice_id_here"
 )
 
-# With custom parameters
+# Audio file dubbing
+dub(
+    input="podcast.mp3",
+    output="dubbed_podcast.wav",
+    voice="voice_id_here"
+)
+
+# With audio post-processing
+dub(
+    input="video.mp4",
+    output="enhanced_video.mp4",
+    voice="voice_id_here",
+    fx=True,  # Use default config
+    seg_min=8,
+    seg_max=15
+)
+
+# Apply effects only (no dubbing)
+fx(
+    input="video.mp4",
+    output="enhanced_video.mp4",
+    config="./voice_enhancement.toml",
+    verbose=True
+)
+
+# Extract audio from video and apply effects
+fx(
+    input="video.mp4",
+    output="extracted_audio.wav",  # Audio output from video input
+    config="./mastering.toml"
+)
+```
+
+### 5.3. VST3 Plugin Configuration
+
+Create a TOML file to configure VST3 plugins for audio post-processing:
+
+```toml
+# Example: voice_enhancement.toml
+
+# Compression to even out volume
+["Compressor.vst3"]
+threshold_db = -20.0
+ratio = 4.0
+attack_ms = 1.0
+release_ms = 100.0
+
+# EQ for voice clarity
+["Pro-Q 3.vst3"]
+preset = "Vocal Presence"
+
+# Subtle reverb for natural sound
+["ValhallaRoom.vst3"]
+mix = 0.1
+room_size = 0.3
+
+# Limiter to prevent clipping
+["Limiter.vst3"]
+threshold_db = -0.5
+release_ms = 50.0
+```
+
+**VST3 Plugin Path Resolution:**
+- **macOS**: `~/Library/Audio/Plug-Ins/VST3` and `/Library/Audio/Plug-Ins/VST3`
+- **Windows**: `C:\Program Files\Common Files\VST3` and `C:\Program Files (x86)\Common Files\VST3`
+- **Linux**: `~/.vst3`, `/usr/lib/vst3`, `/usr/local/lib/vst3`
+
+Plugins are applied in the order specified in the configuration file.
+
+```python
+# Example with custom parameters
 process_video(
     input_path="video.mp4",
     output_path="dubbed_video.mp4",

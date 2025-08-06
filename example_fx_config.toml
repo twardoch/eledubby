@@ -1,0 +1,20 @@
+# Example audio post-processing configuration for eledubby
+# This shows how to configure VST3 plugins for voice enhancement
+
+# Apply compression to even out volume levels
+["Compressor.vst3"]
+threshold_db = -20.0
+ratio = 4.0
+attack_ms = 1.0
+release_ms = 100.0
+
+# Add slight reverb for more natural sound
+["Reverb.vst3"]
+mix = 0.1  # 10% wet signal
+room_size = 0.3
+damping = 0.7
+
+# Final limiter to prevent clipping
+["Limiter.vst3"]
+threshold_db = -0.5
+release_ms = 50.0

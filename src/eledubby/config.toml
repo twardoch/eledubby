@@ -1,0 +1,34 @@
+# this_file: src/eledubby/config.toml
+# Default audio post-processing configuration for eledubby
+# Each section represents a VST3 plugin to apply in order
+
+# Example 1: Compression to even out volume levels
+# Uncomment to enable compression
+# ["Compressor.vst3"]
+# threshold_db = -20.0
+# ratio = 4.0
+# attack_ms = 1.0
+# release_ms = 100.0
+
+# Example 2: EQ to adjust frequency response
+# Uncomment to enable EQ
+# ["FabFilter Pro-Q 3.vst3"]
+# preset = "Vocal Presence"
+
+# Example 3: Reverb for spatial enhancement
+# Uncomment to enable reverb
+# ["ValhallaRoom.vst3"]
+# mix = 0.15
+# size = 0.5
+# decay = 1.2
+
+# Example 4: Limiter to prevent clipping
+# Uncomment to enable limiting
+# ["FabFilter Pro-L 2.vst3"]
+# gain_db = 0.0
+# release_ms = 50.0
+# lookahead_ms = 1.5
+
+# Note: Use absolute paths or plugin names that will be resolved in system VST3 folders:
+# macOS: ~/Library/Audio/Plug-Ins/VST3 and /Library/Audio/Plug-Ins/VST3
+# Windows: C:\Program Files\Common Files\VST3 and C:\Program Files (x86)\Common Files\VST3

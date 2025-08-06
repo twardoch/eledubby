@@ -1,0 +1,29 @@
+
+Into @src/eledubby and @pyproject.toml incorporate @external/pedalboard.txt and in @src/eledubby/eledubby.py `dub` function add: 
+
+--fx NNN where NNN can be 
+    - 0 or `off` or `False` for no post-processing
+    - 1 or `on` or `True` for post-processing with default config (which should be in @src/eledubby/config.toml )
+    - path to a TOML config file for post-processing
+--seg_min for minimal segment length (10 seconds default)
+--seg_max for maximal segment length (20 seconds default)
+
+--------------------------------
+
+If `fx` is on (with default or custom config), then after merging the ElevenLabs API results and before putting the audio into video, we process the audio file with the `pedalboard` library, and we apply VST3 plugins. 
+
+In the TOML config file: 
+
+(1) Each section should be a path to a VST3 plugin. 
+
+If the path is an absolute path, we use it. Otherwise we check in the correct system-specific folders: 
+
+- on macOS are `$HOME/Library/Audio/Plug-Ins/VST3` and if the plugin is not found then `/Library/Audio/Plug-Ins/VST3`
+- on Windows `C:\Program Files\Common Files\VST3` and if the plugin is not found then `C:\Program Files (x86)\Common Files\VST3` 
+
+(2) Inside the section, we specify the plugin parameters. 
+
+--------------------------------
+
+We apply the plugins in the order they are specified in the TOML config file. 
+
