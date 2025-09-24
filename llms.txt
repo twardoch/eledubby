@@ -1,5 +1,8 @@
 Project Structure:
 📁 eledubby
+├── 📁 external
+├── 📁 issues
+│   └── 📄 301.txt
 ├── 📁 src
 │   └── 📁 eledubby
 │       ├── 📁 api
@@ -20,12 +23,19 @@ Project Structure:
 │       │   └── 📄 remuxer.py
 │       ├── 📄 __init__.py
 │       ├── 📄 __main__.py
+│       ├── 📄 config.toml
 │       └── 📄 eledubby.py
 ├── 📄 .gitignore
+├── 📄 CHANGELOG.md
+├── 📄 CLAUDE.md
+├── 📄 example_fx_config.toml
 ├── 📄 LICENSE
+├── 📄 PLAN.md
 ├── 📄 publish.sh
 ├── 📄 pyproject.toml
-└── 📄 README.md
+├── 📄 README.md
+├── 📄 TODO.md
+└── 📄 WORK.md
 
 
 <documents>
@@ -133,10 +143,380 @@ var/
 venv.bak/
 venv/
 wheels/
+external
 </document_content>
 </document>
 
 <document index="2">
+<source>CHANGELOG.md</source>
+<document_content>
+# CHANGELOG.md
+
+## [0.2.0] - 2025-08-05
+
+### Added
+- **VST3 Plugin Support via Pedalboard**
+  - Integration with `pedalboard` library for professional audio post-processing
+  - Support for VST3 plugins on macOS, Windows, and Linux
+  - Automatic plugin path resolution for system-specific directories
+  - TOML-based configuration for plugin parameters
+  - Chain multiple effects in specified order
+
+- **New `fx` Command**
+  - Apply audio effects without dubbing
+  - Works with both video and audio input files
+  - Extract audio from video with effects processing
+  - `--config` argument for custom VST3 configurations
+  - Default configuration support
+
+- **Enhanced Audio/Video File Support**
+  - `dub` command now accepts audio files (MP3, WAV, FLAC, AAC, etc.)
+  - Audio-to-audio dubbing without video processing
+  - Flexible output format handling:
+    - Video → Video (dubbed)
+    - Video → Audio (extract and dub)
+    - Audio → Audio (dub)
+  - Smart file type detection using MIME types and ffprobe
+
+- **New Command-Line Arguments**
+  - `--fx`: Control audio post-processing in `dub` command
+    - `0/off/False`: No post-processing
+    - `1/on/True`: Use default config
+    - Path to TOML: Custom configuration
+  - `--seg_min`: Minimum segment duration (default: 10s)
+  - `--seg_max`: Maximum segment duration (default: 20s)
+  - `--config`: VST3 configuration path for `fx` command
+
+### Changed
+- CLI now uses subcommands: `eledubby dub` and `eledubby fx`
+- Output paths are now auto-generated based on input type
+- ElevenLabs API is optional for `fx` command
+- Improved error messages and validation
+
+### Fixed
+- `__main__.py` was calling undefined `main` instead of proper functions
+- File path tracking (`this_file` comments) throughout codebase
+
+## [0.1.0] - 2025-08-05
+
+### Added
+- Initial implementation of adamdubpy voice dubbing tool
+- Core functionality:
+  - Audio extraction from video files using ffmpeg
+  - Intelligent silence detection and segmentation (10-20 second segments)
+  - Speech-to-speech conversion using ElevenLabs API
+  - Precise timing preservation with padding/cropping
+  - Audio normalization and reassembly
+  - Video remuxing with converted audio track
+- Modular architecture:
+  - `audio/` module for extraction, analysis, segmentation, and processing
+  - `api/` module for ElevenLabs integration with retry logic
+  - `video/` module for remuxing operations
+  - `utils/` module for progress tracking and temp file management
+- CLI interface using fire with arguments:
+  - `--input` (required): Input video path
+  - `--voice` (optional): ElevenLabs voice ID
+  - `--output` (optional): Output video path
+  - `--verbose` (optional): Detailed logging
+- Features:
+  - Real-time progress tracking with rich console output
+  - Comprehensive error handling and recovery
+  - Automatic voice ID validation with fallback
+  - Disk space checking before processing
+  - Detailed processing statistics
+- Documentation:
+  - Comprehensive README with installation and usage instructions
+  - Inline code documentation with docstrings
+  - CLAUDE.md for AI assistant guidance
+
+### Technical Details
+- Python 3.12+ with uv script runner support
+- Dependencies: elevenlabs, python-dotenv, fire, rich, loguru, numpy, scipy
+- Requires ffmpeg for audio/video operations
+- Supports various video formats (MP4, AVI, MOV, etc.)
+- Processes at 2-5x real-time speed typically
+</document_content>
+</document>
+
+<document index="3">
+<source>CLAUDE.md</source>
+<document_content>
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## 1. Project Overview
+
+`adamdubpy` is a Python tool for voice dubbing that:
+- Takes an input video and replaces the audio with a new voice using ElevenLabs API
+- Performs speech-to-speech conversion on audio segments
+- Splits audio into 10-20 second segments based on silence detection
+- Preserves timing by padding or cropping converted segments
+
+## 2. Required Environment Variables
+
+- `ELEVENLABS_API_KEY` - Must be set for the ElevenLabs API authentication (loaded via python-dotenv)
+
+## 3. Key Dependencies
+
+- **elevenlabs-python**: Main package for speech-to-speech conversion
+- **python-dotenv**: For loading environment variables
+- **ffmpeg**: Required for video/audio processing (must be installed on system)
+
+## 4. Development Commands
+
+### 4.1. Setup
+```bash
+# Install dependencies
+pip install elevenlabs python-dotenv
+
+# Set up environment
+echo "ELEVENLABS_API_KEY=your_api_key_here" > .env
+```
+
+### 4.2. Running the Tool
+```bash
+python adamdubpy.py --input video.mp4 --voice voice_id --output output.mp4
+```
+
+Default voice ID: `ELEVENLABS_VOICE_ID` environment variable
+
+## 5. Code Architecture
+
+### 5.1. Audio Processing Pipeline
+1. **Audio Extraction**: Extract audio from input video
+2. **Silence Detection**: Identify split points based on silence (scoring system for silence duration and length)
+3. **Segmentation**: Split audio into 10-20 second segments at optimal silence points
+4. **Speech-to-Speech**: Convert each segment using ElevenLabs API with specified voice
+5. **Timing Preservation**: Pad or crop converted segments to match original timing
+6. **Audio Reassembly**: Combine processed segments
+7. **Video Remuxing**: Replace original audio track with processed audio
+
+### 5.2. Key Implementation Details
+- Segments must be between 10-20 seconds
+- Within each 10-20 second window, find the "most silent long pause"
+- Score pauses based on both silence level and duration
+- Use ElevenLabs speech-to-speech API for voice conversion
+- Maintain exact timing alignment with original video
+
+## 6. Important Notes
+
+- The main script file should be named `adamdubpy.py` (if creating from scratch)
+- Reference documentation is available in `ref/` directory but contains very large files
+- Always check for ffmpeg availability before processing
+- Handle API errors gracefully with retry logic
+- Preserve original video quality during remuxing
+
+
+
+# Software Development Rules
+
+## 7. Pre-Work Preparation
+
+### 7.1. Before Starting Any Work
+- **ALWAYS** read `WORK.md` in the main project folder for work progress
+- Read `README.md` to understand the project
+- STEP BACK and THINK HEAVILY STEP BY STEP about the task
+- Consider alternatives and carefully choose the best option
+- Check for existing solutions in the codebase before starting
+
+### 7.2. Project Documentation to Maintain
+- `README.md` - purpose and functionality
+- `CHANGELOG.md` - past change release notes (accumulative)
+- `PLAN.md` - detailed future goals, clear plan that discusses specifics
+- `TODO.md` - flat simplified itemized `- [ ]`-prefixed representation of `PLAN.md`
+- `WORK.md` - work progress updates
+
+## 8. General Coding Principles
+
+### 8.1. Core Development Approach
+- Iterate gradually, avoiding major changes
+- Focus on minimal viable increments and ship early
+- Minimize confirmations and checks
+- Preserve existing code/structure unless necessary
+- Check often the coherence of the code you're writing with the rest of the code
+- Analyze code line-by-line
+
+### 8.2. Code Quality Standards
+- Use constants over magic numbers
+- Write explanatory docstrings/comments that explain what and WHY
+- Explain where and how the code is used/referred to elsewhere
+- Handle failures gracefully with retries, fallbacks, user guidance
+- Address edge cases, validate assumptions, catch errors early
+- Let the computer do the work, minimize user decisions
+- Reduce cognitive load, beautify code
+- Modularize repeated logic into concise, single-purpose functions
+- Favor flat over nested structures
+
+## 9. Tool Usage (When Available)
+
+### 9.1. Additional Tools
+- If we need a new Python project, run `curl -LsSf https://astral.sh/uv/install.sh | sh; uv venv --python 3.12; uv init; uv add fire rich; uv sync`
+- Use `tree` CLI app if available to verify file locations
+- Check existing code with `.venv` folder to scan and consult dependency source code
+- Run `DIR="."; uvx codetoprompt --compress --output "$DIR/llms.txt"  --respect-gitignore --cxml --exclude "*.svg,.specstory,*.md,*.txt,ref,testdata,*.lock,*.svg" "$DIR"` to get a condensed snapshot of the codebase into `llms.txt`
+
+## 10. File Management
+
+### 10.1. File Path Tracking
+- **MANDATORY**: In every source file, maintain a `this_file` record showing the path relative to project root
+- Place `this_file` record near the top:
+- As a comment after shebangs in code files
+- In YAML frontmatter for Markdown files
+- Update paths when moving files
+- Omit leading `./`
+- Check `this_file` to confirm you're editing the right file
+
+## 11. Python-Specific Guidelines
+
+### 11.1. PEP Standards
+- PEP 8: Use consistent formatting and naming, clear descriptive names
+- PEP 20: Keep code simple and explicit, prioritize readability over cleverness
+- PEP 257: Write clear, imperative docstrings
+- Use type hints in their simplest form (list, dict, | for unions)
+
+### 11.2. Modern Python Practices
+- Use f-strings and structural pattern matching where appropriate
+- Write modern code with `pathlib`
+- ALWAYS add "verbose" mode loguru-based logging & debug-log
+- Use `uv add` 
+- Use `uv pip install` instead of `pip install`
+- Prefix Python CLI tools with `python -m` (e.g., `python -m pytest`)
+
+### 11.3. CLI Scripts Setup
+For CLI Python scripts, use `fire` & `rich`, and start with:
+```python
+#!/usr/bin/env -S uv run -s
+# /// script
+# dependencies = ["PKG1", "PKG2"]
+# ///
+# this_file: PATH_TO_CURRENT_FILE
+```
+
+### 11.4. Post-Edit Python Commands
+```bash
+fd -e py -x uvx autoflake -i {}; fd -e py -x uvx pyupgrade --py312-plus {}; fd -e py -x uvx ruff check --output-format=github --fix --unsafe-fixes {}; fd -e py -x uvx ruff format --respect-gitignore --target-version py312 {}; python -m pytest;
+```
+
+## 12. Post-Work Activities
+
+### 12.1. Critical Reflection
+- After completing a step, say "Wait, but" and do additional careful critical reasoning
+- Go back, think & reflect, revise & improve what you've done
+- Don't invent functionality freely
+- Stick to the goal of "minimal viable next version"
+
+### 12.2. Documentation Updates
+- Update `WORK.md` with what you've done and what needs to be done next
+- Document all changes in `CHANGELOG.md`
+- Update `TODO.md` and `PLAN.md` accordingly
+
+## 13. Work Methodology
+
+### 13.1. Virtual Team Approach
+Be creative, diligent, critical, relentless & funny! Lead two experts:
+- **"Ideot"** - for creative, unorthodox ideas
+- **"Critin"** - to critique flawed thinking and moderate for balanced discussions
+
+Collaborate step-by-step, sharing thoughts and adapting. If errors are found, step back and focus on accuracy and progress.
+
+### 13.2. Continuous Work Mode
+- Treat all items in `PLAN.md` and `TODO.md` as one huge TASK
+- Work on implementing the next item
+- Review, reflect, refine, revise your implementation
+- Periodically check off completed issues
+- Continue to the next item without interruption
+
+## 14. Special Commands
+
+### 14.1. `/plan` Command - Transform Requirements into Detailed Plans
+
+When I say "/plan [requirement]", you must:
+
+1. **DECONSTRUCT** the requirement:
+- Extract core intent, key features, and objectives
+- Identify technical requirements and constraints
+- Map what's explicitly stated vs. what's implied
+- Determine success criteria
+
+2. **DIAGNOSE** the project needs:
+- Audit for missing specifications
+- Check technical feasibility
+- Assess complexity and dependencies
+- Identify potential challenges
+
+3. **RESEARCH** additional material: 
+- Repeatedly call the `perplexity_ask` and request up-to-date information or additional remote context
+- Repeatedly call the `context7` tool and request up-to-date software package documentation
+- Repeatedly call the `codex` tool and request additional reasoning, summarization of files and second opinion
+
+4. **DEVELOP** the plan structure:
+- Break down into logical phases/milestones
+- Create hierarchical task decomposition
+- Assign priorities and dependencies
+- Add implementation details and technical specs
+- Include edge cases and error handling
+- Define testing and validation steps
+
+5. **DELIVER** to `PLAN.md`:
+- Write a comprehensive, detailed plan with:
+ - Project overview and objectives
+ - Technical architecture decisions
+ - Phase-by-phase breakdown
+ - Specific implementation steps
+ - Testing and validation criteria
+ - Future considerations
+- Simultaneously create/update `TODO.md` with the flat itemized `- [ ]` representation
+
+**Plan Optimization Techniques:**
+- **Task Decomposition:** Break complex requirements into atomic, actionable tasks
+- **Dependency Mapping:** Identify and document task dependencies
+- **Risk Assessment:** Include potential blockers and mitigation strategies
+- **Progressive Enhancement:** Start with MVP, then layer improvements
+- **Technical Specifications:** Include specific technologies, patterns, and approaches
+
+### 14.2. `/report` Command
+
+1. Read all `./TODO.md` and `./PLAN.md` files
+2. Analyze recent changes
+3. Document all changes in `./CHANGELOG.md`
+4. Remove completed items from `./TODO.md` and `./PLAN.md`
+5. Ensure `./PLAN.md` contains detailed, clear plans with specifics
+6. Ensure `./TODO.md` is a flat simplified itemized representation
+
+### 14.3. `/work` Command
+
+1. Read all `./TODO.md` and `./PLAN.md` files and reflect
+2. Write down the immediate items in this iteration into `./WORK.md`
+3. Work on these items
+4. Think, contemplate, research, reflect, refine, revise
+5. Be careful, curious, vigilant, energetic
+6. Verify your changes and think aloud
+7. Consult, research, reflect
+8. Periodically remove completed items from `./WORK.md`
+9. Tick off completed items from `./TODO.md` and `./PLAN.md`
+10. Update `./WORK.md` with improvement tasks
+11. Execute `/report`
+12. Continue to the next item
+
+## 15. Additional Guidelines
+
+- Ask before extending/refactoring existing code that may add complexity or break things
+- Work tirelessly without constant updates when in continuous work mode
+- Only notify when you've completed all `PLAN.md` and `TODO.md` items
+
+## 16. Command Summary
+
+- `/plan [requirement]` - Transform vague requirements into detailed `PLAN.md` and `TODO.md`
+- `/report` - Update documentation and clean up completed tasks
+- `/work` - Enter continuous work mode to implement plans
+- You may use these commands autonomously when appropriate
+
+
+</document_content>
+</document>
+
+<document index="4">
 <source>LICENSE</source>
 <document_content>
 MIT License
@@ -163,7 +543,196 @@ SOFTWARE.
 </document_content>
 </document>
 
-<document index="3">
+<document index="5">
+<source>PLAN.md</source>
+<document_content>
+# PLAN.md - Eledubby Voice Dubbing Tool
+
+## Project Overview
+
+**Eledubby** is a Python-based voice dubbing and audio processing tool that performs speech-to-speech conversion on video and audio files using ElevenLabs API, with professional audio post-processing capabilities via VST3 plugins.
+
+## Future Enhancements
+
+### Phase 1: Performance and Reliability Improvements
+
+1. **Parallel Processing**
+
+- Implement concurrent segment processing for faster conversion
+- Use threading pool for API calls
+- Optimize memory usage for large files
+
+2. **Resume Capability**
+
+- Save processing state to checkpoint files
+- Allow resuming interrupted conversions
+- Implement partial result recovery
+
+3. **Batch Processing**
+
+- Process multiple videos/audio files in sequence
+- Support glob patterns for input files
+- Generate batch reports
+
+### Phase 2: Advanced Audio Features
+
+1. **Enhanced VST3 Support**
+
+- Auto-discovery of installed VST3 plugins
+- Plugin preset management
+- Real-time parameter adjustment during processing
+- Support for AU (Audio Unit) plugins on macOS
+
+2. **Audio Analysis and Enhancement**
+
+- Automatic volume leveling
+- Noise reduction preprocessing
+- Dynamic range compression
+- Spectral analysis and EQ matching
+
+3. **Advanced Segmentation**
+
+- ML-based scene detection for better split points
+- Language-aware segmentation
+- Musical phrase detection for music videos
+
+### Phase 3: Multi-Language and Voice Features
+
+1. **Language Support**
+
+- Auto-detect source language
+- Language-specific voice selection
+- Cross-language dubbing support
+
+2. **Voice Management**
+
+- Voice preview/testing mode
+- Custom voice profiles
+- Voice blending for multiple speakers
+- Speaker diarization for multi-speaker content
+
+3. **Subtitle Integration**
+
+- Generate subtitles from original audio
+- Sync subtitles with dubbed audio
+- Multi-language subtitle support
+
+### Phase 4: User Experience Enhancements
+
+1. **Preview Mode**
+
+- Process first 30-60 seconds for quick testing
+- Side-by-side comparison of original vs dubbed
+- Real-time parameter adjustment
+
+2. **Quality Metrics**
+
+- Audio quality assessment scores
+- Timing accuracy reports
+- Voice similarity metrics
+- Processing statistics dashboard
+
+3. **Configuration Management**
+
+- Project-based settings
+- Configuration templates
+- Import/export settings
+- Cloud sync for settings
+
+### Phase 5: Platform and Integration
+
+1. **GUI Application**
+
+- Desktop application with drag-and-drop
+- Real-time progress visualization
+- Waveform display and editing
+- Built-in audio player with A/B comparison
+
+2. **Cloud Processing**
+
+- Upload to cloud for processing
+- Distributed processing for long videos
+- Web-based interface
+- API for third-party integration
+
+3. **Platform Extensions**
+
+- Docker containerization
+- GitHub Actions integration
+- CI/CD pipeline support
+- Plugin architecture for custom processors
+
+### Phase 6: Advanced Video Features
+
+1. **Lip Sync Optimization**
+
+- Analyze video for lip movements
+- Adjust audio timing for better sync
+- Support for animated content
+
+2. **Scene-Aware Processing**
+
+- Different processing for music vs dialogue
+- Ambient sound preservation
+- Background music handling
+
+3. **Format Support**
+
+- Additional video formats (WebM, MKV, etc.)
+- Streaming format support (HLS, DASH)
+- HDR video preservation
+- Multi-track audio support
+
+## Technical Debt and Maintenance
+
+### Code Quality
+
+- Add comprehensive unit tests
+- Implement integration tests
+- Add type hints throughout
+- Improve error messages and logging
+
+### Documentation
+
+- API documentation
+- Video tutorials
+- Example configurations
+- Troubleshooting guide
+
+### Performance Optimization
+
+- Profile and optimize bottlenecks
+- Reduce memory footprint
+- Implement streaming processing
+- Cache optimization
+
+## Success Metrics for Future Releases
+
+### Performance Goals
+
+- Process 4K videos efficiently
+- Support videos over 2 hours
+- Reduce processing time by 50%
+- Memory usage under 4GB for 4K videos
+
+### Quality Goals
+
+- 99% audio-video sync accuracy
+- Support for 95% of common formats
+- Zero quality loss in video
+- Natural-sounding voice conversion
+
+### User Experience Goals
+
+- One-click processing for common tasks
+- < 5 minute setup time
+- Intuitive configuration
+- Comprehensive error recovery
+
+</document_content>
+</document>
+
+<document index="6">
 <source>README.md</source>
 <document_content>
 # Eledubby
@@ -183,6 +752,7 @@ SOFTWARE.
 - 📊 **Progress tracking** - Real-time progress updates with detailed status information
 - 🛡️ **Error resilience** - Automatic retries and graceful error handling
 - 🎛️ **Customizable parameters** - Fine-tune silence detection and segmentation settings
+- 🎸 **VST3 Plugin Support** - Apply professional audio effects using VST3 plugins via Pedalboard
 
 ## 2. Table of Contents
 
@@ -252,59 +822,175 @@ uv sync
    eledubby --input video.mp4 --output dubbed_video.mp4
    ```
 
+   With audio post-processing:
+   ```bash
+   eledubby --input video.mp4 --output dubbed_video.mp4 --fx on
+   ```
+
 ## 5. Usage
 
 ### 5.1. Command Line Interface
 
+The package provides two main commands:
+
+#### 5.1.1. `dub` - Voice Dubbing with ElevenLabs
+
 ```bash
-eledubby [OPTIONS]
+eledubby dub [OPTIONS]
 ```
 
-#### 5.1.1. Options
+**Options:**
+- `--input` (required): Path to the input video or audio file
+- `--output`: Path to the output file (default: auto-generated)
+- `--voice`: ElevenLabs voice ID (default: ELEVENLABS_VOICE_ID environment variable)
+- `--fx`: Audio post-processing effects:
+  - `0`, `off`, or `False`: No post-processing
+  - `1`, `on`, or `True`: Use default config from `src/eledubby/config.toml`
+  - Path to TOML file: Use custom VST3 plugin configuration
+- `--seg_min`: Minimum segment duration in seconds (default: 10)
+- `--seg_max`: Maximum segment duration in seconds (default: 20)
+- `--verbose`: Enable verbose logging
 
-- `--input, -i` (required): Path to the input video file
-- `--output, -o` (required): Path to the output video file
-- `--voice, -v`: ElevenLabs voice ID (default: `iBR3vm0M6ImfaxXsPgxi`)
-- `--silence-threshold`: Silence detection threshold in dB (default: -40)
-- `--min-silence-duration`: Minimum silence duration in seconds (default: 0.5)
-- `--min-segment-duration`: Minimum segment duration in seconds (default: 10)
-- `--max-segment-duration`: Maximum segment duration in seconds (default: 20)
-- `--padding-duration`: Padding duration for segments in seconds (default: 0.1)
-- `--model`: ElevenLabs model to use (default: `eleven_multilingual_v2`)
-- `--stability`: Voice stability (0.0-1.0, default: 0.5)
-- `--similarity-boost`: Voice similarity boost (0.0-1.0, default: 0.75)
-- `--max-workers`: Maximum number of parallel workers (default: 3)
-- `--verbose, -v`: Enable verbose logging
+#### 5.1.2. `fx` - Audio Effects Only (No Dubbing)
 
-#### 5.1.2. Examples
-
-Basic usage with custom voice:
 ```bash
-eledubby -i interview.mp4 -v rachel_voice_id -o interview_dubbed.mp4
+eledubby fx [OPTIONS]
 ```
 
-With custom parameters:
+**Options:**
+- `--input` (required): Path to the input video or audio file
+- `--output`: Path to the output file (default: auto-generated with same format)
+- `--config`: Path to TOML config file for VST3 plugins (default: src/eledubby/config.toml)
+- `--verbose`: Enable verbose logging
+
+#### 5.1.3. Examples
+
+**Dubbing Examples:**
+
+Basic video dubbing:
 ```bash
-eledubby -i podcast.mp4 -o podcast_dubbed.mp4 \
-  --silence-threshold -35 \
-  --min-segment-duration 8 \
-  --max-segment-duration 15 \
-  --verbose
+eledubby dub --input interview.mp4 --voice rachel_voice_id --output interview_dubbed.mp4
+```
+
+Audio file dubbing (audio-to-audio):
+```bash
+eledubby dub --input podcast.mp3 --voice alex_voice_id --output podcast_dubbed.wav
+```
+
+With custom segment durations:
+```bash
+eledubby dub --input podcast.mp4 --output podcast_dubbed.mp4 \
+  --seg_min 8 --seg_max 15 --verbose
+```
+
+With audio post-processing:
+```bash
+eledubby dub --input video.mp4 --output enhanced_video.mp4 \
+  --fx ./my_effects.toml --verbose
+```
+
+**Effects-Only Examples:**
+
+Apply effects to video (no dubbing):
+```bash
+eledubby fx --input video.mp4 --output enhanced_video.mp4 \
+  --config ./voice_enhancement.toml
+```
+
+Apply effects to audio file:
+```bash
+eledubby fx --input recording.wav --output processed_recording.wav
+```
+
+Extract and process audio from video:
+```bash
+eledubby fx --input video.mp4 --output audio_only.wav \
+  --config ./mastering.toml
 ```
 
 ### 5.2. Python API
 
 ```python
-from eledubby import process_video
+from eledubby.eledubby import dub, fx
 
-# Basic usage
-process_video(
-    input_path="video.mp4",
-    output_path="dubbed_video.mp4",
-    voice_id="voice_id_here"
+# Basic video dubbing
+dub(
+    input="video.mp4",
+    output="dubbed_video.mp4",
+    voice="voice_id_here"
 )
 
-# With custom parameters
+# Audio file dubbing
+dub(
+    input="podcast.mp3",
+    output="dubbed_podcast.wav",
+    voice="voice_id_here"
+)
+
+# With audio post-processing
+dub(
+    input="video.mp4",
+    output="enhanced_video.mp4",
+    voice="voice_id_here",
+    fx=True,  # Use default config
+    seg_min=8,
+    seg_max=15
+)
+
+# Apply effects only (no dubbing)
+fx(
+    input="video.mp4",
+    output="enhanced_video.mp4",
+    config="./voice_enhancement.toml",
+    verbose=True
+)
+
+# Extract audio from video and apply effects
+fx(
+    input="video.mp4",
+    output="extracted_audio.wav",  # Audio output from video input
+    config="./mastering.toml"
+)
+```
+
+### 5.3. VST3 Plugin Configuration
+
+Create a TOML file to configure VST3 plugins for audio post-processing:
+
+```toml
+# Example: voice_enhancement.toml
+
+# Compression to even out volume
+["Compressor.vst3"]
+threshold_db = -20.0
+ratio = 4.0
+attack_ms = 1.0
+release_ms = 100.0
+
+# EQ for voice clarity
+["Pro-Q 3.vst3"]
+preset = "Vocal Presence"
+
+# Subtle reverb for natural sound
+["ValhallaRoom.vst3"]
+mix = 0.1
+room_size = 0.3
+
+# Limiter to prevent clipping
+["Limiter.vst3"]
+threshold_db = -0.5
+release_ms = 50.0
+```
+
+**VST3 Plugin Path Resolution:**
+- **macOS**: `~/Library/Audio/Plug-Ins/VST3` and `/Library/Audio/Plug-Ins/VST3`
+- **Windows**: `C:\Program Files\Common Files\VST3` and `C:\Program Files (x86)\Common Files\VST3`
+- **Linux**: `~/.vst3`, `/usr/lib/vst3`, `/usr/local/lib/vst3`
+
+Plugins are applied in the order specified in the configuration file.
+
+```python
+# Example with custom parameters
 process_video(
     input_path="video.mp4",
     output_path="dubbed_video.mp4",
@@ -614,7 +1300,295 @@ Made with ❤️ by [Adam Twardoch](https://github.com/twardoch)
 </document_content>
 </document>
 
-<document index="4">
+<document index="7">
+<source>TODO.md</source>
+<document_content>
+# TODO.md - Eledubby Future Implementation Tasks
+
+## Performance and Reliability
+
+- [ ] Implement parallel segment processing for faster conversion
+- [ ] Add threading pool for concurrent API calls
+- [ ] Optimize memory usage for large files
+- [ ] Create checkpoint system for resume capability
+- [ ] Implement partial result recovery
+- [ ] Add batch processing for multiple files
+- [ ] Support glob patterns for input selection
+
+## Advanced Audio Features
+
+- [ ] Add auto-discovery of installed VST3 plugins
+- [ ] Implement plugin preset management
+- [ ] Support AU (Audio Unit) plugins on macOS
+- [ ] Add automatic volume leveling
+- [ ] Implement noise reduction preprocessing
+- [ ] Add dynamic range compression
+- [ ] Create ML-based scene detection for better splits
+- [ ] Implement language-aware segmentation
+- [ ] Add musical phrase detection for music videos
+
+## Multi-Language and Voice
+
+- [ ] Implement source language auto-detection
+- [ ] Add language-specific voice selection
+- [ ] Support cross-language dubbing
+- [ ] Create voice preview/testing mode
+- [ ] Add custom voice profiles
+- [ ] Implement voice blending for multiple speakers
+- [ ] Add speaker diarization
+- [ ] Generate subtitles from original audio
+- [ ] Sync subtitles with dubbed audio
+
+## User Experience
+
+- [ ] Add preview mode (first 30-60 seconds)
+- [ ] Create side-by-side comparison view
+- [ ] Implement real-time parameter adjustment
+- [ ] Add audio quality assessment scores
+- [ ] Create timing accuracy reports
+- [ ] Implement project-based settings
+- [ ] Add configuration templates
+- [ ] Create import/export for settings
+
+## GUI and Platform
+
+- [ ] Develop desktop GUI application
+- [ ] Add drag-and-drop support
+- [ ] Implement waveform visualization
+- [ ] Create built-in audio player with A/B comparison
+- [ ] Add Docker containerization
+- [ ] Create GitHub Actions integration
+- [ ] Implement web-based interface
+- [ ] Add API for third-party integration
+
+## Advanced Video Features
+
+- [ ] Analyze video for lip sync optimization
+- [ ] Implement scene-aware processing
+- [ ] Add ambient sound preservation
+- [ ] Support background music handling
+- [ ] Add support for WebM, MKV formats
+- [ ] Implement streaming format support (HLS, DASH)
+- [ ] Preserve HDR video
+- [ ] Support multi-track audio
+
+## Testing and Quality
+
+- [ ] Write comprehensive unit tests
+- [ ] Create integration test suite
+- [ ] Add end-to-end testing
+- [ ] Implement performance benchmarks
+- [ ] Add memory usage monitoring
+- [ ] Create automated quality checks
+- [ ] Set up CI/CD pipeline
+
+## Documentation
+
+- [ ] Write detailed API documentation
+- [ ] Create video tutorials
+- [ ] Add more example configurations
+- [ ] Write troubleshooting guide
+- [ ] Create plugin development guide
+- [ ] Add best practices documentation
+
+</document_content>
+</document>
+
+<document index="8">
+<source>WORK.md</source>
+<document_content>
+# WORK.md - Current Work Progress
+
+## Latest Work - Enhanced Audio/Video Support and FX Function
+
+### New Features Added
+
+1. **`fx` Function**: Apply audio effects without dubbing
+   - Works with both audio and video files
+   - Extracts audio from video if needed
+   - Can output audio from video input
+   - Uses `--config` argument for VST3 configuration
+
+2. **Audio File Support in `dub` Function**:
+   - Now accepts audio files as input (MP3, WAV, FLAC, etc.)
+   - Audio-to-audio dubbing without video processing
+   - Automatic format detection and conversion
+
+3. **Flexible Input/Output Handling**:
+   - Automatic detection of file types (audio vs video)
+   - Smart output format determination
+   - Video → Video, Video → Audio, Audio → Audio conversions
+   - Cannot convert Audio → Video (validated)
+
+4. **Enhanced File Type Detection**:
+   - MIME type detection
+   - Extension-based fallback
+   - FFprobe verification for uncertain cases
+
+## Previous Work - Audio Post-Processing with Pedalboard (Issue #301)
+
+Successfully integrated the `pedalboard` library for VST3 plugin support in the eledubby project:
+
+### 1. Added Dependencies
+- Added `pedalboard>=0.9.0` for VST3 plugin support
+- Added `toml>=0.10.2` for configuration file parsing
+- Added `loguru>=0.7.0` to dependencies (was already used but missing)
+
+### 2. Implemented New Command-Line Arguments
+- `--fx`: Controls audio post-processing
+  - `0/off/False`: No post-processing
+  - `1/on/True`: Use default config from `src/eledubby/config.toml`
+  - Path to TOML file: Use custom configuration
+- `--seg_min`: Minimum segment duration (default: 10 seconds)
+- `--seg_max`: Maximum segment duration (default: 20 seconds)
+
+### 3. VST3 Plugin Support Implementation
+- Added `_resolve_vst3_path()` method for automatic plugin discovery
+- Searches system-specific directories:
+  - macOS: `~/Library/Audio/Plug-Ins/VST3` and `/Library/Audio/Plug-Ins/VST3`
+  - Windows: `C:\Program Files\Common Files\VST3` and `C:\Program Files (x86)\Common Files\VST3`
+  - Linux: `~/.vst3`, `/usr/lib/vst3`, `/usr/local/lib/vst3`
+- Supports both absolute paths and plugin names
+
+### 4. Audio Effects Processing
+- Added `_apply_audio_fx()` method using pedalboard
+- Loads VST3 plugins dynamically from TOML configuration
+- Applies plugins in the order specified
+- Robust error handling for missing plugins or invalid parameters
+
+### 5. Configuration System
+- Created `src/eledubby/config.toml` with commented examples
+- Created `example_fx_config.toml` showing practical usage
+- TOML format allows easy parameter configuration for each plugin
+
+### 6. Bug Fixes
+- Fixed `__main__.py` calling undefined `main` instead of `dub`
+- Updated `this_file` paths throughout the codebase
+
+### 7. Documentation Updates
+- Updated README with VST3 plugin features
+- Added usage examples for new arguments
+- Documented plugin configuration format
+- Added system-specific plugin path information
+
+## Technical Details
+
+### Audio Processing Pipeline
+Post-processing effects are applied:
+1. After all segments are converted by ElevenLabs
+2. After segments are concatenated
+3. After audio normalization
+4. Before remuxing with video
+
+### Plugin Loading Process
+1. Parse TOML configuration file
+2. For each plugin section:
+   - Resolve plugin path (absolute or system search)
+   - Load VST3 using pedalboard.load_plugin()
+   - Set parameters from config
+   - Add to processing chain
+3. Apply all plugins in sequence to audio
+
+### Error Resilience
+- Missing plugins: Log warning, skip plugin
+- Invalid parameters: Log warning, use defaults
+- No plugins loaded: Use original audio
+- Processing failures: Fallback to unprocessed audio
+
+## Usage Examples
+
+### Basic usage with effects:
+```bash
+eledubby --input video.mp4 --output dubbed.mp4 --fx on
+```
+
+### Custom configuration:
+```bash
+eledubby --input video.mp4 --output dubbed.mp4 --fx ./my_effects.toml
+```
+
+### Adjust segment durations:
+```bash
+eledubby --input video.mp4 --output dubbed.mp4 --seg_min 5 --seg_max 15
+```
+
+### Combined options:
+```bash
+eledubby --input video.mp4 --output pro_dubbed.mp4 \
+  --voice custom_voice_id \
+  --fx ./voice_enhancement.toml \
+  --seg_min 8 --seg_max 18 \
+  --verbose
+```
+
+## Status
+✅ All requested features from Issue #301 have been implemented and integrated into the codebase.
+</document_content>
+</document>
+
+<document index="9">
+<source>example_fx_config.toml</source>
+<document_content>
+# Example audio post-processing configuration for eledubby
+# This shows how to configure VST3 plugins for voice enhancement
+
+# Apply compression to even out volume levels
+["Compressor.vst3"]
+threshold_db = -20.0
+ratio = 4.0
+attack_ms = 1.0
+release_ms = 100.0
+
+# Add slight reverb for more natural sound
+["Reverb.vst3"]
+mix = 0.1  # 10% wet signal
+room_size = 0.3
+damping = 0.7
+
+# Final limiter to prevent clipping
+["Limiter.vst3"]
+threshold_db = -0.5
+release_ms = 50.0
+</document_content>
+</document>
+
+<document index="10">
+<source>issues/301.txt</source>
+<document_content>
+
+Into @src/eledubby and @pyproject.toml incorporate @external/pedalboard.txt and in @src/eledubby/eledubby.py `dub` function add: 
+
+--fx NNN where NNN can be 
+    - 0 or `off` or `False` for no post-processing
+    - 1 or `on` or `True` for post-processing with default config (which should be in @src/eledubby/config.toml )
+    - path to a TOML config file for post-processing
+--seg_min for minimal segment length (10 seconds default)
+--seg_max for maximal segment length (20 seconds default)
+
+--------------------------------
+
+If `fx` is on (with default or custom config), then after merging the ElevenLabs API results and before putting the audio into video, we process the audio file with the `pedalboard` library, and we apply VST3 plugins. 
+
+In the TOML config file: 
+
+(1) Each section should be a path to a VST3 plugin. 
+
+If the path is an absolute path, we use it. Otherwise we check in the correct system-specific folders: 
+
+- on macOS are `$HOME/Library/Audio/Plug-Ins/VST3` and if the plugin is not found then `/Library/Audio/Plug-Ins/VST3`
+- on Windows `C:\Program Files\Common Files\VST3` and if the plugin is not found then `C:\Program Files (x86)\Common Files\VST3` 
+
+(2) Inside the section, we specify the plugin parameters. 
+
+--------------------------------
+
+We apply the plugins in the order they are specified in the TOML config file. 
+
+
+</document_content>
+</document>
+
+<document index="11">
 <source>publish.sh</source>
 <document_content>
 #!/usr/bin/env bash
@@ -635,7 +1609,7 @@ uvx hatch publish
 </document_content>
 </document>
 
-<document index="5">
+<document index="12">
 <source>pyproject.toml</source>
 <document_content>
 [build-system]
@@ -674,6 +1648,9 @@ dependencies = [
     "numpy>=2.3.2",
     "scipy>=1.7.0",
     "fire>=0.7.0",
+    "pedalboard>=0.9.0",
+    "toml>=0.10.2",
+    "loguru>=0.7.0",
 ]
 
 [project.urls]
@@ -763,28 +1740,28 @@ ignore_missing_imports = true
 </document_content>
 </document>
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/__init__.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/__init__.py
 # Language: python
 
 from ._version import __version__, __version_tuple__
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/__main__.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/__main__.py
 # Language: python
 
 import fire
-from eledubby.eledubby import main
+from eledubby.eledubby import dub, fx
 
 def cli(()):
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/api/__init__.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/api/__init__.py
 # Language: python
 
 from .elevenlabs_client import ElevenLabsClient
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/api/elevenlabs_client.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/api/elevenlabs_client.py
 # Language: python
 
 import os
@@ -834,7 +1811,7 @@ def list_voices((self)) -> list:
     """List available voices."""
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/__init__.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/audio/__init__.py
 # Language: python
 
 from .analyzer import SilenceAnalyzer
@@ -843,7 +1820,7 @@ from .processor import AudioProcessor
 from .segmenter import AudioSegmenter
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/analyzer.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/audio/analyzer.py
 # Language: python
 
 import numpy as np
@@ -896,7 +1873,7 @@ def _find_optimal_segments((
     """Find optimal segment boundaries based on silence scores."""
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/extractor.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/audio/extractor.py
 # Language: python
 
 import subprocess
@@ -921,7 +1898,7 @@ def _get_duration((self, audio_path: str)) -> float:
     """Get duration of audio file in seconds."""
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/processor.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/audio/processor.py
 # Language: python
 
 import os
@@ -957,7 +1934,7 @@ def normalize_audio((self, audio_path: str, output_path: str, target_db: float =
     """Normalize audio levels."""
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/audio/segmenter.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/audio/segmenter.py
 # Language: python
 
 import os
@@ -982,13 +1959,60 @@ def concatenate((self, segment_paths: list[str], output_path: str)) -> str:
     """Concatenate audio segments back together."""
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/eledubby.py
+<document index="13">
+<source>src/eledubby/config.toml</source>
+<document_content>
+# this_file: src/eledubby/config.toml
+# Default audio post-processing configuration for eledubby
+# Each section represents a VST3 plugin to apply in order
+
+# Example 1: Compression to even out volume levels
+# Uncomment to enable compression
+# ["Compressor.vst3"]
+# threshold_db = -20.0
+# ratio = 4.0
+# attack_ms = 1.0
+# release_ms = 100.0
+
+# Example 2: EQ to adjust frequency response
+# Uncomment to enable EQ
+# ["FabFilter Pro-Q 3.vst3"]
+# preset = "Vocal Presence"
+
+# Example 3: Reverb for spatial enhancement
+# Uncomment to enable reverb
+# ["ValhallaRoom.vst3"]
+# mix = 0.15
+# size = 0.5
+# decay = 1.2
+
+# Example 4: Limiter to prevent clipping
+# Uncomment to enable limiting
+# ["FabFilter Pro-L 2.vst3"]
+# gain_db = 0.0
+# release_ms = 50.0
+# lookahead_ms = 1.5
+
+# Note: Use absolute paths or plugin names that will be resolved in system VST3 folders:
+# macOS: ~/Library/Audio/Plug-Ins/VST3 and /Library/Audio/Plug-Ins/VST3
+# Windows: C:\Program Files\Common Files\VST3 and C:\Program Files (x86)\Common Files\VST3
+</document_content>
+</document>
+
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/eledubby.py
 # Language: python
 
+import mimetypes
 import os
+import platform
+import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Union
+import numpy as np
+import pedalboard
+import toml
 from dotenv import load_dotenv
 from loguru import logger
 from rich.console import Console
@@ -996,48 +2020,86 @@ from .api import ElevenLabsClient
 from .audio import AudioExtractor, AudioProcessor, AudioSegmenter, SilenceAnalyzer
 from .utils import ProgressTracker, TempFileManager
 from .video import VideoRemuxer
-import subprocess
+import shutil
+import shutil
 
 class EleDubby:
     """Main class for video dubbing functionality."""
-    def __init__((self, verbose: bool = False)):
+    def __init__((self, verbose: bool = False, seg_min: float = DEFAULT_MIN_SEGMENT_DURATION, 
+                 seg_max: float = DEFAULT_MAX_SEGMENT_DURATION, require_elevenlabs: bool = True)):
         """Initialize the dubbing tool."""
     def _setup_logging((self)):
         """Configure logging based on verbose flag."""
-    def _check_dependencies((self)):
+    def _check_dependencies((self, require_elevenlabs: bool = True)):
         """Check for required system dependencies."""
-    def process((self, input: str, voice: str = DEFAULT_VOICE_ID, output: str | None = None)):
-        """Process a video file with voice dubbing."""
+    def _resolve_vst3_path((self, plugin_path: str)) -> str | None:
+        """Resolve VST3 plugin path based on system."""
+    def _apply_audio_fx((self, audio_path: str, fx_config: Union[str, dict], output_path: str)) -> str:
+        """Apply audio effects using pedalboard and VST3 plugins."""
+    def _is_video_file((self, file_path: str)) -> bool:
+        """Check if a file is a video file based on mime type or extension."""
+    def _determine_output_format((self, input_path: str, output_path: str | None, 
+                                 is_input_video: bool, force_audio: bool = False)) -> tuple[str, bool]:
+        """Determine the output file path and whether it should be video."""
+    def process((self, input: str, voice: str = DEFAULT_VOICE_ID, output: str | None = None, 
+                fx: Union[str, bool, None] = None)):
+        """Process a video or audio file with voice dubbing."""
 
-def __init__((self, verbose: bool = False)):
+def __init__((self, verbose: bool = False, seg_min: float = DEFAULT_MIN_SEGMENT_DURATION, 
+                 seg_max: float = DEFAULT_MAX_SEGMENT_DURATION, require_elevenlabs: bool = True)):
     """Initialize the dubbing tool."""
 
 def _setup_logging((self)):
     """Configure logging based on verbose flag."""
 
-def _check_dependencies((self)):
+def _check_dependencies((self, require_elevenlabs: bool = True)):
     """Check for required system dependencies."""
 
-def process((self, input: str, voice: str = DEFAULT_VOICE_ID, output: str | None = None)):
-    """Process a video file with voice dubbing."""
+def _resolve_vst3_path((self, plugin_path: str)) -> str | None:
+    """Resolve VST3 plugin path based on system."""
 
-def main((
+def _apply_audio_fx((self, audio_path: str, fx_config: Union[str, dict], output_path: str)) -> str:
+    """Apply audio effects using pedalboard and VST3 plugins."""
+
+def _is_video_file((self, file_path: str)) -> bool:
+    """Check if a file is a video file based on mime type or extension."""
+
+def _determine_output_format((self, input_path: str, output_path: str | None, 
+                                 is_input_video: bool, force_audio: bool = False)) -> tuple[str, bool]:
+    """Determine the output file path and whether it should be video."""
+
+def process((self, input: str, voice: str = DEFAULT_VOICE_ID, output: str | None = None, 
+                fx: Union[str, bool, None] = None)):
+    """Process a video or audio file with voice dubbing."""
+
+def dub((
     input: str | Path,
     voice: str = DEFAULT_VOICE_ID,
     output: str | Path | None = None,
     verbose: bool = False,
+    fx: Union[str, bool, None] = None,
+    seg_min: float = DEFAULT_MIN_SEGMENT_DURATION,
+    seg_max: float = DEFAULT_MAX_SEGMENT_DURATION,
 )):
     """eledubby - Voice dubbing tool using ElevenLabs speech-to-speech API."""
 
+def fx((
+    input: str | Path,
+    output: str | Path | None = None,
+    config: str | None = None,
+    verbose: bool = False,
+)):
+    """Apply audio effects to a video or audio file without dubbing."""
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/utils/__init__.py
+
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/utils/__init__.py
 # Language: python
 
 from .progress import ProgressTracker
 from .temp_manager import TempFileManager
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/utils/progress.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/utils/progress.py
 # Language: python
 
 from contextlib import contextmanager
@@ -1073,7 +2135,7 @@ def print_summary((self, stats: dict)):
     """Print processing summary."""
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/utils/temp_manager.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/utils/temp_manager.py
 # Language: python
 
 import os
@@ -1115,13 +2177,13 @@ def check_disk_space((path: str, required_gb: float)) -> bool:
     """Check if enough disk space is available."""
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/video/__init__.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/video/__init__.py
 # Language: python
 
 from .remuxer import VideoRemuxer
 
 
-# File: /Users/adam/Downloads/_re/eledubby/src/eledubby/video/remuxer.py
+# File: /Users/adam/Developer/vcs/github.twardoch/pub/eledubby/src/eledubby/video/remuxer.py
 # Language: python
 
 import subprocess
