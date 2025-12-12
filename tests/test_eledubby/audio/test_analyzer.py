@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pytest
@@ -132,10 +131,7 @@ class TestSilenceAnalyzer:
         silence_scores = []
         for i in range(600):  # 30s
             time = i * 0.05
-            if 14.5 <= time <= 15.5:
-                score = 1.0  # Very silent
-            else:
-                score = 0.0  # Loud
+            score = 1.0 if 14.5 <= time <= 15.5 else 0.0
             silence_scores.append((time, score))
 
         segments = analyzer._find_optimal_segments(
@@ -152,8 +148,9 @@ class TestSilenceAnalyzer:
         assert 14.0 <= segments[0][1] <= 16.0
 
     def test_analyze_when_wav_file_then_returns_segments(self, tmp_path: Path) -> None:
-        from eledubby.audio.analyzer import SilenceAnalyzer
         from scipy.io import wavfile
+
+        from eledubby.audio.analyzer import SilenceAnalyzer
 
         analyzer = SilenceAnalyzer()
 

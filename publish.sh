@@ -11,4 +11,4 @@ uvx codetoprompt \
     "."
 gitnextver .
 uvx hatch build
-uvx hatch publish
+uv publish

@@ -2,22 +2,21 @@
 
 ## Performance and Reliability
 
-- [ ] Implement parallel segment processing for faster conversion
-- [ ] Add threading pool for concurrent API calls
-- [ ] Optimize memory usage for large files
-- [ ] Create checkpoint system for resume capability
-- [ ] Implement partial result recovery
-- [ ] Add batch processing for multiple files
-- [ ] Support glob patterns for input selection
+- [x] Implement parallel segment processing for faster conversion
+- [x] Add threading pool for concurrent API calls
+- [x] Add batch processing for multiple files with glob pattern support
+- [x] Optimize memory usage for large files (streaming analysis for >50MB files)
+- [x] Create checkpoint system for resume capability (`--resume` flag, `checkpoints` command)
+- [x] Implement partial result recovery (`eledubby recover` command)
 
 ## Advanced Audio Features
 
-- [ ] Add auto-discovery of installed VST3 plugins
-- [ ] Implement plugin preset management
+- [x] Add auto-discovery of installed VST3 plugins (`eledubby plugins` command)
+- [x] Implement plugin preset management (`eledubby plugin-params`, `eledubby presets` commands)
 - [ ] Support AU (Audio Unit) plugins on macOS
-- [ ] Add automatic volume leveling
-- [ ] Implement noise reduction preprocessing
-- [ ] Add dynamic range compression
+- [x] Add automatic volume leveling (EBU R128 normalization with `--normalize` and `--target_db`)
+- [x] Implement noise reduction preprocessing (`--denoise 0.0-1.0` strength)
+- [x] Add dynamic range compression (`--compress` flag)
 - [ ] Create ML-based scene detection for better splits
 - [ ] Implement language-aware segmentation
 - [ ] Add musical phrase detection for music videos
@@ -27,7 +26,7 @@
 - [ ] Implement source language auto-detection
 - [ ] Add language-specific voice selection
 - [ ] Support cross-language dubbing
-- [ ] Create voice preview/testing mode
+- [x] Create voice preview/testing mode (`eledubby preview` command)
 - [ ] Add custom voice profiles
 - [ ] Implement voice blending for multiple speakers
 - [ ] Add speaker diarization
@@ -36,7 +35,7 @@
 
 ## User Experience
 
-- [ ] Add preview mode (first 30-60 seconds)
+- [x] Add preview mode (first N seconds)
 - [ ] Create side-by-side comparison view
 - [ ] Implement real-time parameter adjustment
 - [ ] Add audio quality assessment scores
@@ -51,8 +50,8 @@
 - [ ] Add drag-and-drop support
 - [ ] Implement waveform visualization
 - [ ] Create built-in audio player with A/B comparison
-- [ ] Add Docker containerization
-- [ ] Create GitHub Actions integration
+- [x] Add Docker containerization
+- [x] Create GitHub Actions integration
 - [ ] Implement web-based interface
 - [ ] Add API for third-party integration
 
@@ -69,19 +68,19 @@
 
 ## Testing and Quality
 
-- [ ] Write comprehensive unit tests
-- [ ] Create integration test suite
-- [ ] Add end-to-end testing
-- [ ] Implement performance benchmarks
-- [ ] Add memory usage monitoring
-- [ ] Create automated quality checks
-- [ ] Set up CI/CD pipeline
+- [x] Write comprehensive unit tests (123 tests covering audio, api, utils, integration, e2e modules)
+- [x] Create integration test suite for dub command
+- [x] Add end-to-end testing (test_e2e.py with mocked API)
+- [x] Implement performance benchmarks (`tests/test_eledubby/test_benchmarks.py`)
+- [x] Add memory usage monitoring (`tests/test_eledubby/test_benchmarks.py::TestMemoryMonitoring`)
+- [x] Create automated quality checks (`eledubby quality` command, `AudioQualityChecker`)
+- [x] Set up CI/CD pipeline (GitHub Actions)
 
 ## Documentation
 
 - [ ] Write detailed API documentation
 - [ ] Create video tutorials
-- [ ] Add more example configurations
-- [ ] Write troubleshooting guide
+- [x] Add more example configurations (examples/*.toml)
+- [x] Write troubleshooting guide (README section 14)
 - [ ] Create plugin development guide
 - [ ] Add best practices documentation

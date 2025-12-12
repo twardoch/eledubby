@@ -2,9 +2,9 @@
 """Audio segmentation module."""
 
 import os
-import subprocess
 
 from loguru import logger
+from pedalboard.io import AudioFile
 
 
 class AudioSegmenter:
@@ -28,32 +28,33 @@ class AudioSegmenter:
 
         segment_paths = []
 
-        for i, (start, end) in enumerate(segments):
-            duration = end - start
-            output_path = os.path.join(output_dir, f"segment_{i:04d}.wav")
+        # Open source file once for all segments
+        with AudioFile(audio_path) as src:
+            sample_rate = src.samplerate
+            num_channels = src.num_channels
 
-            cmd = [
-                "ffmpeg",
-                "-i",
-                audio_path,
-                "-ss",
-                str(start),
-                "-t",
-                str(duration),
-                "-c",
-                "copy",
-                "-y",
-                output_path,
-            ]
+            for i, (start, end) in enumerate(segments):
+                duration = end - start
+                output_path = os.path.join(output_dir, f"segment_{i:04d}.wav")
 
-            logger.debug(f"Extracting segment {i}: {start:.2f}s - {end:.2f}s ({duration:.2f}s)")
+                # Calculate frame positions
+                start_frame = int(start * sample_rate)
+                end_frame = int(end * sample_rate)
+                num_frames = end_frame - start_frame
 
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                logger.error(f"Failed to extract segment {i}: {result.stderr}")
-                raise RuntimeError(f"Segmentation failed: {result.stderr}")
+                # Seek to start position and read segment
+                src.seek(start_frame)
+                audio_data = src.read(num_frames)
 
-            segment_paths.append(output_path)
+                logger.debug(f"Extracting segment {i}: {start:.2f}s - {end:.2f}s ({duration:.2f}s)")
+
+                # Write segment to file
+                with AudioFile(
+                    output_path, "w", samplerate=sample_rate, num_channels=num_channels
+                ) as dst:
+                    dst.write(audio_data)
+
+                segment_paths.append(output_path)
 
         logger.info(f"Created {len(segment_paths)} segments")
         return segment_paths
@@ -68,35 +69,27 @@ class AudioSegmenter:
         Returns:
             Path to concatenated audio file
         """
-        # Create concat file
-        concat_file = output_path + ".txt"
-        with open(concat_file, "w") as f:
-            for path in segment_paths:
-                f.write(f"file '{path}'\n")
+        if not segment_paths:
+            raise ValueError("No segments to concatenate")
 
-        cmd = [
-            "ffmpeg",
-            "-f",
-            "concat",
-            "-safe",
-            "0",
-            "-i",
-            concat_file,
-            "-c",
-            "copy",
-            "-y",
-            output_path,
-        ]
+        # Get format from first segment
+        with AudioFile(segment_paths[0]) as first:
+            sample_rate = first.samplerate
+            num_channels = first.num_channels
 
         logger.debug(f"Concatenating {len(segment_paths)} segments")
 
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            logger.error(f"Failed to concatenate: {result.stderr}")
-            raise RuntimeError(f"Concatenation failed: {result.stderr}")
-
-        # Cleanup concat file
-        os.remove(concat_file)
+        # Concatenate all segments
+        with AudioFile(output_path, "w", samplerate=sample_rate, num_channels=num_channels) as dst:
+            for path in segment_paths:
+                with AudioFile(path) as src:
+                    # Read and write in chunks to handle large files
+                    chunk_size = sample_rate  # 1 second chunks
+                    while src.tell() < src.frames:
+                        chunk = src.read(chunk_size)
+                        if chunk.size == 0:
+                            break
+                        dst.write(chunk)
 
         logger.info(f"Concatenated audio saved to: {output_path}")
         return output_path

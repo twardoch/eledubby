@@ -1,0 +1,35 @@
+# this_file: examples/fx_cinematic.toml
+# Cinematic voice preset for dramatic narration
+# Use with: eledubby fx --input narration.wav --config examples/fx_cinematic.toml
+
+# Compression for controlled dynamics
+["TDR Kotelnikov.vst3"]
+threshold = -20.0
+ratio = 3.5
+attack = 8.0
+release = 120.0
+
+# Room reverb for cinematic depth
+["Valhalla Room.vst3"]
+mix = 0.12
+size = 0.6
+decay = 1.8
+predelay = 20.0
+highcut = 8000
+
+# Subtle delay for presence
+# ["Valhalla Delay.vst3"]
+# mix = 0.05
+# time = 80
+# feedback = 0.1
+
+# Tape saturation for warmth
+# ["Soundtoys Decapitator.vst3"]
+# style = "tape"
+# drive = 2.0
+# mix = 0.15
+
+# Final limiter
+["TDR Limiter 6 GE.vst3"]
+ceiling = -0.3
+release = 80.0

@@ -209,23 +209,33 @@ class ElevenLabsClient:
             logger.error(f"Failed to validate voice: {e}")
             return False
 
-    def list_voices(self) -> list:
+    def list_voices(self, detailed: bool = False) -> list:
         """List available voices.
 
+        Args:
+            detailed: Include additional voice metadata
+
         Returns:
-            List of voice dictionaries with id and name
+            List of voice dictionaries
         """
         try:
             voices = self.client.voices.get_all()
             voice_list = []
             for voice in voices.voices:
-                voice_list.append(
-                    {
-                        "id": voice.voice_id,
-                        "name": voice.name,
-                        "category": getattr(voice, "category", "unknown"),
-                    }
-                )
+                voice_data = {
+                    "id": voice.voice_id,
+                    "name": voice.name,
+                    "category": getattr(voice, "category", ""),
+                }
+                if detailed:
+                    voice_data.update(
+                        {
+                            "description": getattr(voice, "description", "") or "",
+                            "preview_url": getattr(voice, "preview_url", "") or "",
+                            "labels": getattr(voice, "labels", {}) or {},
+                        }
+                    )
+                voice_list.append(voice_data)
             return voice_list
         except Exception as e:
             logger.error(f"Failed to list voices: {e}")

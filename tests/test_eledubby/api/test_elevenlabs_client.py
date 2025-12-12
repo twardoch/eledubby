@@ -26,17 +26,21 @@ class TestElevenLabsClientInit:
     def test_init_when_no_key_and_no_env_then_raises(self) -> None:
         from eledubby.api import ElevenLabsClient
 
-        with patch.dict("os.environ", {}, clear=True):
-            with patch(f"{PATCH_BASE}.os.getenv", return_value=None):
-                with pytest.raises(ValueError, match="ELEVENLABS_API_KEY not provided"):
-                    ElevenLabsClient()
+        with (
+            patch.dict("os.environ", {}, clear=True),
+            patch(f"{PATCH_BASE}.os.getenv", return_value=None),
+            pytest.raises(ValueError, match="ELEVENLABS_API_KEY not provided"),
+        ):
+            ElevenLabsClient()
 
     def test_init_when_env_key_then_uses_env(self) -> None:
         from eledubby.api import ElevenLabsClient
 
-        with patch(f"{PATCH_BASE}.os.getenv", return_value="env_key"):
-            with patch(f"{PATCH_BASE}.ElevenLabs"):
-                client = ElevenLabsClient()
+        with (
+            patch(f"{PATCH_BASE}.os.getenv", return_value="env_key"),
+            patch(f"{PATCH_BASE}.ElevenLabs"),
+        ):
+            client = ElevenLabsClient()
 
         assert client.api_key == "env_key"
 
@@ -60,9 +64,7 @@ class TestElevenLabsClientInit:
 class TestElevenLabsClientTextToSpeech:
     """Tests for ElevenLabsClient.text_to_speech method."""
 
-    def test_text_to_speech_when_success_then_returns_output_path(
-        self, tmp_path: Path
-    ) -> None:
+    def test_text_to_speech_when_success_then_returns_output_path(self, tmp_path: Path) -> None:
         from eledubby.api import ElevenLabsClient
 
         output_path = tmp_path / "output.mp3"
@@ -83,9 +85,7 @@ class TestElevenLabsClientTextToSpeech:
         assert output_path.exists()
         assert output_path.read_bytes() == b"audio_chunk"
 
-    def test_text_to_speech_when_empty_chunks_then_skips_them(
-        self, tmp_path: Path
-    ) -> None:
+    def test_text_to_speech_when_empty_chunks_then_skips_them(self, tmp_path: Path) -> None:
         from eledubby.api import ElevenLabsClient
 
         output_path = tmp_path / "output.mp3"
@@ -110,9 +110,7 @@ class TestElevenLabsClientTextToSpeech:
 class TestElevenLabsClientSpeechToSpeech:
     """Tests for ElevenLabsClient.speech_to_speech method."""
 
-    def test_speech_to_speech_when_success_then_returns_output_path(
-        self, tmp_path: Path
-    ) -> None:
+    def test_speech_to_speech_when_success_then_returns_output_path(self, tmp_path: Path) -> None:
         from eledubby.api import ElevenLabsClient
 
         input_path = tmp_path / "input.wav"
@@ -125,9 +123,7 @@ class TestElevenLabsClientSpeechToSpeech:
             mock_client.speech_to_speech.convert.return_value = iter([b"converted"])
 
             client = ElevenLabsClient(api_key="test")
-            result = client.speech_to_speech(
-                str(input_path), "voice123", str(output_path)
-            )
+            result = client.speech_to_speech(str(input_path), "voice123", str(output_path))
 
         assert result == str(output_path)
         assert output_path.exists()
@@ -221,7 +217,7 @@ class TestElevenLabsClientListVoices:
 
         assert result == []
 
-    def test_list_voices_when_no_category_then_uses_unknown(self) -> None:
+    def test_list_voices_when_no_category_then_uses_empty_string(self) -> None:
         from eledubby.api import ElevenLabsClient
 
         with patch(f"{PATCH_BASE}.ElevenLabs") as mock_el:
@@ -237,4 +233,53 @@ class TestElevenLabsClientListVoices:
             client = ElevenLabsClient(api_key="test")
             result = client.list_voices()
 
-        assert result[0]["category"] == "unknown"
+        assert result[0]["category"] == ""
+
+    def test_list_voices_detailed_includes_extra_fields(self) -> None:
+        from eledubby.api import ElevenLabsClient
+
+        with patch(f"{PATCH_BASE}.ElevenLabs") as mock_el:
+            mock_client = MagicMock()
+            mock_el.return_value = mock_client
+            mock_voice = MagicMock()
+            mock_voice.voice_id = "v1"
+            mock_voice.name = "Voice 1"
+            mock_voice.category = "cloned"
+            mock_voice.description = "A test voice"
+            mock_voice.preview_url = "https://example.com/preview.mp3"
+            mock_voice.labels = {"accent": "british", "gender": "male"}
+            mock_voices = MagicMock()
+            mock_voices.voices = [mock_voice]
+            mock_client.voices.get_all.return_value = mock_voices
+
+            client = ElevenLabsClient(api_key="test")
+            result = client.list_voices(detailed=True)
+
+        assert result[0]["id"] == "v1"
+        assert result[0]["name"] == "Voice 1"
+        assert result[0]["category"] == "cloned"
+        assert result[0]["description"] == "A test voice"
+        assert result[0]["preview_url"] == "https://example.com/preview.mp3"
+        assert result[0]["labels"] == {"accent": "british", "gender": "male"}
+
+    def test_list_voices_not_detailed_excludes_extra_fields(self) -> None:
+        from eledubby.api import ElevenLabsClient
+
+        with patch(f"{PATCH_BASE}.ElevenLabs") as mock_el:
+            mock_client = MagicMock()
+            mock_el.return_value = mock_client
+            mock_voice = MagicMock()
+            mock_voice.voice_id = "v1"
+            mock_voice.name = "Voice 1"
+            mock_voice.category = "cloned"
+            mock_voice.description = "A test voice"
+            mock_voices = MagicMock()
+            mock_voices.voices = [mock_voice]
+            mock_client.voices.get_all.return_value = mock_voices
+
+            client = ElevenLabsClient(api_key="test")
+            result = client.list_voices(detailed=False)
+
+        assert "description" not in result[0]
+        assert "preview_url" not in result[0]
+        assert "labels" not in result[0]

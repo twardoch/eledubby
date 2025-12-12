@@ -16,6 +16,9 @@
 - 🛡️ **Error resilience** - Automatic retries and graceful error handling
 - 🎛️ **Customizable parameters** - Fine-tune silence detection and segmentation settings
 - 🎸 **VST3 Plugin Support** - Apply professional audio effects using VST3 plugins via Pedalboard
+- 🔄 **Resume capability** - Resume interrupted jobs from checkpoints (`--resume`)
+- 🔇 **Noise reduction** - Preprocess audio with noise reduction (`--denoise`)
+- 🎤 **Voice preview** - Test voices before dubbing with the `preview` command
 
 ## 2. Table of Contents
 
@@ -103,8 +106,8 @@ eledubby dub [OPTIONS]
 ```
 
 **Options:**
-- `--input` (required): Path to the input video or audio file
-- `--output`: Path to the output file (default: auto-generated)
+- `--input` (required): Path to the input video/audio file or glob pattern (e.g., `*.mp4`, `videos/*.mov`)
+- `--output`: Path to output file or directory for batch mode (default: auto-generated)
 - `--voice`: ElevenLabs voice ID (default: ELEVENLABS_VOICE_ID environment variable)
 - `--api_key`: ElevenLabs API key override (default: ELEVENLABS_API_KEY environment variable)
 - `--fx`: Audio post-processing effects:
@@ -113,6 +116,13 @@ eledubby dub [OPTIONS]
   - Path to TOML file: Use custom VST3 plugin configuration
 - `--seg_min`: Minimum segment duration in seconds (default: 10)
 - `--seg_max`: Maximum segment duration in seconds (default: 20)
+- `--parallel`: Number of parallel workers for segment processing (default: 1 = sequential)
+- `--preview`: Preview mode - process only first N seconds (default: 0 = full file)
+- `--normalize`: Enable EBU R128 loudness normalization (default: True)
+- `--target_db`: Target loudness in dB for normalization (default: -23.0)
+- `--compress`: Apply dynamic range compression before normalization (default: False)
+- `--denoise`: Noise reduction strength (0.0-1.0, default: 0 = disabled)
+- `--resume`: Resume from checkpoint if available (default: False)
 - `--verbose`: Enable verbose logging
 
 #### 5.1.2. `fx` - Audio Effects Only (No Dubbing)
@@ -128,7 +138,62 @@ eledubby fx [OPTIONS]
 - `--config`: Path to TOML config file for VST3 plugins (default: src/eledubby/config.toml)
 - `--verbose`: Enable verbose logging
 
-#### 5.1.3. `cast` - Generate MP3s for Many Voices
+#### 5.1.3. `plugins` - List Installed VST3 Plugins
+
+```bash
+eledubby plugins [OPTIONS]
+```
+
+**Options:**
+- `--json`: Output as JSON instead of formatted list
+
+#### 5.1.4. `voices` - List Available Voices
+
+```bash
+eledubby voices [OPTIONS]
+```
+
+**Options:**
+- `--api_key`: ElevenLabs API key override (default: ELEVENLABS_API_KEY environment variable)
+- `--json`: Output as JSON instead of CSV
+- `--detailed`: Include additional voice metadata (description, preview_url, labels)
+
+#### 5.1.5. `checkpoints` - Manage Processing Checkpoints
+
+```bash
+eledubby checkpoints [OPTIONS]
+```
+
+**Options:**
+- `--json`: Output as JSON instead of formatted list
+- `--clean`: Remove old checkpoints
+- `--max_age_days`: Maximum age for checkpoints when cleaning (default: 7)
+
+#### 5.1.6. `preview` - Test Voice Before Dubbing
+
+```bash
+eledubby preview [OPTIONS]
+```
+
+**Options:**
+- `--voice`: ElevenLabs voice ID (lists voices if not provided)
+- `--text`: Custom text to synthesize (default: sample preview text)
+- `--output`: Output path for preview audio (default: `preview_<voice_id>.mp3`)
+- `--api_key`: ElevenLabs API key override
+- `--play`: Play audio after generation using ffplay (default: False)
+
+#### 5.1.7. `recover` - Recover Partial Results from Interrupted Jobs
+
+```bash
+eledubby recover --input INPUT --voice VOICE_ID [OPTIONS]
+```
+
+**Options:**
+- `--input` (required): Path to the original input file (used to identify checkpoint)
+- `--voice` (required): ElevenLabs voice ID (used to identify checkpoint)
+- `--output`: Output path for recovered audio (default: `input_partial.wav`)
+
+#### 5.1.8. `cast` - Generate MP3s for Many Voices
 
 ```bash
 eledubby cast --text_path TEXT.txt [OPTIONS]
@@ -140,9 +205,121 @@ eledubby cast --text_path TEXT.txt [OPTIONS]
 - `--api_key`: ElevenLabs API key override (default: ELEVENLABS_API_KEY environment variable)
 - `--voices_list`: Comma-separated voice IDs (e.g. `a,b,c`)
 - `--voices_path`: Text file with one voice per line; optionally `voice_id;api_key` per line
+- `--force`: Regenerate files even if they already exist (default: skip existing)
 - `--verbose`: Enable verbose logging
 
-#### 5.1.4. Examples
+**Notes:**
+- Output files use format `{voice_id}-{voice_slug}.mp3` where voice_slug is a sanitized version of the voice name
+- When using all voices (no `--voices_list` or `--voices_path`), "premade" voices are automatically skipped
+- Existing output files are skipped unless `--force` is specified
+
+#### 5.1.9. `plugin-params` - Show Plugin Parameters
+
+```bash
+eledubby plugin-params PLUGIN_NAME [OPTIONS]
+```
+
+**Options:**
+- `--plugin` (required): Plugin name or path (partial match supported)
+- `--json`: Output as JSON
+- `--toml`: Output as TOML preset template (copy-paste into preset file)
+
+#### 5.1.10. `presets` - List Available Presets
+
+```bash
+eledubby presets [OPTIONS]
+```
+
+**Options:**
+- `--path`: Additional directory to search for presets
+
+Searches for `.toml` preset files in `examples/`, `./presets/`, and current directory.
+
+#### 5.1.11. `quality` - Audio Quality Analysis
+
+```bash
+eledubby quality --input AUDIO_FILE [OPTIONS]
+```
+
+Analyze audio files for quality issues like clipping, DC offset, low SNR, excessive silence, and more.
+
+**Options:**
+- `--input` (required): Path to audio file to analyze
+- `--compare`: Optional second file to compare (e.g., original vs processed)
+- `--json`: Output as JSON instead of formatted text
+- `--verbose`: Show all metrics even if passing
+
+**Metrics Checked:**
+- Peak and RMS levels
+- Signal-to-noise ratio (SNR)
+- Clipping detection
+- DC offset
+- Dynamic range
+- Silence ratio
+- Loudness (LUFS)
+
+#### 5.1.12. Examples
+
+**Plugins Examples:**
+
+List installed VST3 plugins:
+```bash
+eledubby plugins
+```
+
+List plugins as JSON:
+```bash
+eledubby plugins --json
+```
+
+Show parameters for a plugin:
+```bash
+eledubby plugin-params "Compressor"
+```
+
+Generate TOML preset template:
+```bash
+eledubby plugin-params "Compressor" --toml > my_preset.toml
+```
+
+List available FX presets:
+```bash
+eledubby presets
+```
+
+**Quality Examples:**
+
+Check audio file quality:
+```bash
+eledubby quality --input audio.wav
+```
+
+Compare original and processed audio:
+```bash
+eledubby quality --input original.wav --compare processed.wav
+```
+
+Get detailed metrics as JSON:
+```bash
+eledubby quality --input audio.wav --json --verbose
+```
+
+**Voices Examples:**
+
+List all voices (CSV):
+```bash
+eledubby voices
+```
+
+List all voices (JSON):
+```bash
+eledubby voices --json
+```
+
+List voices with extra metadata:
+```bash
+eledubby voices --detailed --json
+```
 
 **Dubbing Examples:**
 
@@ -166,6 +343,100 @@ With audio post-processing:
 ```bash
 eledubby dub --input video.mp4 --output enhanced_video.mp4 \
   --fx ./my_effects.toml --verbose
+```
+
+Parallel processing for faster conversion (4 workers):
+```bash
+eledubby dub --input long_video.mp4 --output dubbed.mp4 \
+  --parallel 4 --verbose
+```
+
+Preview mode (process first 30 seconds only):
+```bash
+eledubby dub --input video.mp4 --output preview.mp4 \
+  --preview 30 --voice my_voice_id
+```
+
+Batch processing with glob patterns:
+```bash
+eledubby dub --input "videos/*.mp4" --output ./dubbed/ \
+  --voice my_voice_id --parallel 4
+```
+
+Disable volume normalization:
+```bash
+eledubby dub --input video.mp4 --output dubbed.mp4 \
+  --normalize=False
+```
+
+Custom loudness target:
+```bash
+eledubby dub --input video.mp4 --output dubbed.mp4 \
+  --target_db -16.0
+```
+
+Apply dynamic range compression:
+```bash
+eledubby dub --input video.mp4 --output dubbed.mp4 \
+  --compress --normalize
+```
+
+Apply noise reduction before dubbing:
+```bash
+eledubby dub --input video.mp4 --output dubbed.mp4 \
+  --denoise 0.5 --voice my_voice_id
+```
+
+Resume an interrupted job:
+```bash
+eledubby dub --input video.mp4 --output dubbed.mp4 \
+  --voice my_voice_id --resume
+```
+
+**Checkpoint Examples:**
+
+List all checkpoints:
+```bash
+eledubby checkpoints
+```
+
+List checkpoints as JSON:
+```bash
+eledubby checkpoints --json
+```
+
+Clean old checkpoints (older than 7 days):
+```bash
+eledubby checkpoints --clean
+```
+
+**Preview Examples:**
+
+List available voices:
+```bash
+eledubby preview
+```
+
+Preview a voice:
+```bash
+eledubby preview --voice my_voice_id
+```
+
+Preview with custom text and play:
+```bash
+eledubby preview --voice my_voice_id --text "Hello world" --play
+```
+
+**Recovery Examples:**
+
+Recover partial results from an interrupted job:
+```bash
+eledubby recover --input video.mp4 --voice my_voice_id
+```
+
+Recover to a specific output path:
+```bash
+eledubby recover --input video.mp4 --voice my_voice_id --output partial_result.wav
 ```
 
 **Effects-Only Examples:**
@@ -202,6 +473,11 @@ eledubby cast --text_path script.txt --voices_list a,b,c --api_key YOUR_KEY
 Use a voices file (optional per-voice API key):
 ```bash
 eledubby cast --text_path script.txt --voices_path voices.txt
+```
+
+Force regeneration of existing files:
+```bash
+eledubby cast --text_path script.txt --force
 ```
 
 ### 5.2. Python API
@@ -569,22 +845,63 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 1. **FFmpeg not found**
    - Ensure FFmpeg is installed: `ffmpeg -version`
    - Add FFmpeg to your system PATH
+   - macOS: `brew install ffmpeg`
+   - Ubuntu/Debian: `sudo apt install ffmpeg`
+   - Windows: Download from [ffmpeg.org](https://ffmpeg.org/download.html)
 
 2. **API key errors**
-   - Verify your API key is correct
+   - Verify your API key is correct: `eledubby voices` should list voices
    - Check your ElevenLabs account has sufficient credits
+   - Ensure the key has speech-to-speech permissions
 
 3. **Memory issues with large videos**
-   - Process videos in smaller chunks
-   - Reduce the number of parallel workers
-   - Use a machine with more RAM
+   - Use `--preview 60` to test with first 60 seconds
+   - Reduce `--parallel` workers (try `--parallel 1`)
+   - Close other applications to free RAM
+   - Consider processing in segments manually
 
 4. **Audio sync issues**
-   - Try adjusting the padding duration
-   - Experiment with different segment durations
-   - Check that the input video has constant frame rate
+   - Try different segment durations: `--seg_min 8 --seg_max 15`
+   - Ensure input video has constant frame rate (use `ffprobe` to check)
+   - Convert variable frame rate videos first: `ffmpeg -i input.mp4 -r 30 output.mp4`
 
-### 14.2. Getting Help
+5. **Voice sounds unnatural**
+   - Try different voices: `eledubby voices --detailed --json`
+   - Adjust segment sizes for more natural pauses
+   - Use `--compress` for more even dynamics
+   - Apply post-processing with `--fx`
+
+6. **VST3 plugins not found**
+   - Run `eledubby plugins` to see detected plugins
+   - Install plugins to standard system paths
+   - Use absolute paths in config TOML files
+
+7. **Processing takes too long**
+   - Use `--parallel 4` (or higher) for concurrent processing
+   - Use `--preview` to test settings first
+   - Consider shorter segment durations
+
+8. **Job interrupted**
+   - Use `--resume` to continue from checkpoint
+   - Run `eledubby checkpoints` to see saved progress
+   - Checkpoints auto-save after each segment
+
+9. **Background noise in source**
+   - Use `--denoise 0.5` for moderate noise reduction
+   - Higher values (0.7-1.0) for noisy recordings
+   - Combines FFT-based and non-local means filtering
+
+### 14.2. Error Messages
+
+| Error | Solution |
+|-------|----------|
+| `ELEVENLABS_API_KEY not set` | Export your API key: `export ELEVENLABS_API_KEY=your_key` |
+| `No files found matching` | Check your glob pattern or file path |
+| `Rate limited` | Wait a moment, tool will auto-retry |
+| `Voice ID not found` | Use `eledubby voices` to list valid IDs |
+| `Insufficient disk space` | Clear temp files, ensure ~10x video size free |
+
+### 14.3. Getting Help
 
 - Check the [Issues](https://github.com/twardoch/eledubby/issues) page
 - Create a new issue with detailed information about your problem

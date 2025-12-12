@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 
@@ -142,9 +141,7 @@ class TestTempFileManagerEstimateSpace:
 class TestTempFileManagerCheckDiskSpace:
     """Tests for TempFileManager.check_disk_space."""
 
-    def test_check_disk_space_when_enough_space_then_returns_true(
-        self, tmp_path: Path
-    ) -> None:
+    def test_check_disk_space_when_enough_space_then_returns_true(self, tmp_path: Path) -> None:
         from eledubby.utils.temp_manager import TempFileManager
 
         # 0.001 GB is a tiny amount that should always be available

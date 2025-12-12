@@ -1,6 +1,6 @@
 #!/usr/bin/env -S uv run -s
 # /// script
-# dependencies = ["elevenlabs", "python-dotenv", "fire", "rich", "loguru", "numpy", "scipy", "pedalboard", "toml"]
+# dependencies = ["elevenlabs", "python-dotenv", "fire", "rich", "loguru", "numpy", "pedalboard", "toml"]
 # ///
 # this_file: src/eledubby/eledubby.py
 
@@ -11,6 +11,7 @@ Takes an input video and replaces the audio with a new voice using ElevenLabs AP
 Performs intelligent audio segmentation and maintains perfect timing synchronization.
 """
 
+import glob as glob_module
 import mimetypes
 import os
 import platform
@@ -24,13 +25,21 @@ import pedalboard
 import toml
 from dotenv import load_dotenv
 from loguru import logger
+from pathvalidate import sanitize_filename
 from rich.console import Console
+from slugify import slugify
 
 from .api import ElevenLabsClient
 
 # Import our modules
-from .audio import AudioExtractor, AudioProcessor, AudioSegmenter, SilenceAnalyzer
-from .utils import ProgressTracker, TempFileManager
+from .audio import (
+    AudioExtractor,
+    AudioProcessor,
+    AudioQualityChecker,
+    AudioSegmenter,
+    SilenceAnalyzer,
+)
+from .utils import CheckpointManager, ProgressTracker, TempFileManager
 from .video import VideoRemuxer
 
 # Load environment variables
@@ -60,6 +69,11 @@ class EleDubby:
         api_key: str | None = None,
         parallel: int = 1,
         preview: float = 0,
+        normalize: bool = True,
+        target_db: float = -23.0,
+        compress: bool = False,
+        resume: bool = False,
+        denoise: float = 0.0,
     ):
         """Initialize the dubbing tool.
 
@@ -71,6 +85,11 @@ class EleDubby:
             api_key: ElevenLabs API key override (defaults to env var)
             parallel: Number of parallel workers for segment processing (1=sequential)
             preview: Preview mode - process only first N seconds (0=disabled, default: 0)
+            normalize: Enable EBU R128 loudness normalization (default: True)
+            target_db: Target loudness in dB for normalization (default: -23.0)
+            compress: Apply dynamic range compression (default: False)
+            resume: Resume from checkpoint if available (default: False)
+            denoise: Noise reduction strength 0.0-1.0 (0=disabled, default: 0)
         """
         self.verbose = verbose
         self.parallel = max(1, parallel)
@@ -78,6 +97,11 @@ class EleDubby:
         self.seg_min = seg_min
         self.seg_max = seg_max
         self.api_key = api_key
+        self.normalize = normalize
+        self.target_db = target_db
+        self.compress = compress
+        self.resume = resume
+        self.denoise = max(0.0, min(1.0, denoise))
         self._setup_logging()
         self._check_dependencies(require_elevenlabs)
 
@@ -91,6 +115,7 @@ class EleDubby:
         self.video_remuxer = VideoRemuxer()
         self.progress_tracker = ProgressTracker()
         self.temp_manager = TempFileManager()
+        self.checkpoint_manager = CheckpointManager()
 
     def _setup_logging(self):
         """Configure logging based on verbose flag."""
@@ -407,6 +432,24 @@ class EleDubby:
         console.print(f"[bold]Voice ID:[/bold] {voice}")
         console.print(f"[bold]Output path:[/bold] {output}")
 
+        # Check for existing checkpoint if resume mode is enabled
+        resuming_from_checkpoint = False
+        checkpoint_state = None
+        if self.resume and self.checkpoint_manager.has_checkpoint(input, voice):
+            checkpoint_state = self.checkpoint_manager.load_checkpoint(input, voice)
+            remaining = self.checkpoint_manager.get_remaining_segments(input, voice)
+            if remaining:
+                resuming_from_checkpoint = True
+                console.print(
+                    f"[cyan]Resuming from checkpoint: {len(checkpoint_state.processed_indices)} of "
+                    f"{len(checkpoint_state.segments)} segments already processed[/cyan]"
+                )
+            else:
+                console.print(
+                    "[yellow]Checkpoint found but all segments complete. Starting fresh.[/yellow]"
+                )
+                self.checkpoint_manager.delete_checkpoint(input, voice)
+
         # Validate voice ID
         console.print("Validating voice ID...")
         if not self.elevenlabs_client.validate_voice_id(voice):
@@ -480,10 +523,23 @@ class EleDubby:
                         ]
                         subprocess.run(cmd, check=True, capture_output=True)
 
-                # Step 2: Analyze audio and find segment boundaries
-                console.print("Analyzing audio for optimal segmentation...")
-                segments = self.silence_analyzer.analyze(audio_path, self.seg_min, self.seg_max)
-                console.print(f"Found {len(segments)} segments")
+                # Step 1.5: Apply noise reduction preprocessing (optional)
+                if self.denoise > 0:
+                    console.print(f"Applying noise reduction (strength: {self.denoise:.1%})...")
+                    denoised_path = os.path.join(temp_dir, "denoised_audio.wav")
+                    audio_path = self.audio_processor.reduce_noise_advanced(
+                        audio_path, denoised_path, method="afftdn", strength=self.denoise
+                    )
+                    logger.debug(f"Noise reduction applied with strength {self.denoise}")
+
+                # Step 2: Get segments (from checkpoint or analyze fresh)
+                if resuming_from_checkpoint and checkpoint_state:
+                    segments = checkpoint_state.segments
+                    console.print(f"Using {len(segments)} segments from checkpoint")
+                else:
+                    console.print("Analyzing audio for optimal segmentation...")
+                    segments = self.silence_analyzer.analyze(audio_path, self.seg_min, self.seg_max)
+                    console.print(f"Found {len(segments)} segments")
 
                 # Step 3: Split audio into segments
                 with self.progress_tracker.track_file_operation("Splitting audio into segments"):
@@ -491,10 +547,32 @@ class EleDubby:
                         audio_path, segments, os.path.join(temp_dir, "segments")
                     )
 
+                # Create or verify checkpoint
+                if not resuming_from_checkpoint:
+                    parameters = {
+                        "seg_min": self.seg_min,
+                        "seg_max": self.seg_max,
+                        "normalize": self.normalize,
+                        "target_db": self.target_db,
+                        "compress": self.compress,
+                    }
+                    checkpoint_state = self.checkpoint_manager.create_checkpoint(
+                        input, voice, segments, parameters, self.preview
+                    )
+                    console.print("[dim]Checkpoint created for resume capability[/dim]")
+
                 # Step 4: Process each segment with ElevenLabs
                 # Create output directories
                 os.makedirs(os.path.join(temp_dir, "converted"), exist_ok=True)
                 os.makedirs(os.path.join(temp_dir, "adjusted"), exist_ok=True)
+
+                # Get already-processed segments from checkpoint
+                cached_segments = {}
+                if resuming_from_checkpoint:
+                    cached_segments = self.checkpoint_manager.get_processed_segment_paths(
+                        input, voice
+                    )
+                    logger.debug(f"Loaded {len(cached_segments)} cached segments from checkpoint")
 
                 def process_segment(args: tuple[int, str, float, float]) -> tuple[int, str]:
                     """Process a single segment (for parallel execution)."""
@@ -508,51 +586,66 @@ class EleDubby:
                     self.audio_processor.adjust_duration(
                         converted_path, original_duration, adjusted_path
                     )
+
+                    # Update checkpoint after successful processing
+                    self.checkpoint_manager.update_checkpoint(input, voice, i, adjusted_path)
+
                     return i, adjusted_path
 
-                # Build list of segment processing tasks
+                # Build list of segment processing tasks (exclude already-processed)
                 segment_tasks = [
                     (i, segment_path, start, end)
                     for i, (segment_path, (start, end)) in enumerate(
                         zip(segment_paths, segments, strict=False)
                     )
+                    if i not in cached_segments
                 ]
 
-                # Process segments (parallel or sequential)
-                converted_segments_map: dict[int, str] = {}
-                with self.progress_tracker.track_segments(
-                    len(segment_paths), "Converting segments"
-                ) as update:
-                    if self.parallel > 1:
-                        # Parallel processing
-                        mode = f"parallel ({self.parallel} workers)"
-                        logger.info(f"Processing {len(segment_tasks)} segments in {mode}")
-                        with ThreadPoolExecutor(max_workers=self.parallel) as executor:
-                            futures = {
-                                executor.submit(process_segment, task): task[0]
-                                for task in segment_tasks
-                            }
-                            for future in as_completed(futures):
-                                idx, adjusted_path = future.result()
+                # Start with cached segments
+                converted_segments_map: dict[int, str] = dict(cached_segments)
+
+                # Process remaining segments (parallel or sequential)
+                if segment_tasks:
+                    with self.progress_tracker.track_segments(
+                        len(segment_paths), "Converting segments"
+                    ) as update:
+                        # Update progress for already-completed segments
+                        if cached_segments:
+                            update(
+                                len(cached_segments),
+                                description=f"Restored {len(cached_segments)} segments from checkpoint",
+                            )
+
+                        if self.parallel > 1:
+                            # Parallel processing
+                            mode = f"parallel ({self.parallel} workers)"
+                            logger.info(f"Processing {len(segment_tasks)} segments in {mode}")
+                            with ThreadPoolExecutor(max_workers=self.parallel) as executor:
+                                futures = {
+                                    executor.submit(process_segment, task): task[0]
+                                    for task in segment_tasks
+                                }
+                                for future in as_completed(futures):
+                                    idx, adjusted_path = future.result()
+                                    converted_segments_map[idx] = adjusted_path
+                                    update(
+                                        1,
+                                        description=f"Converted segment {len(converted_segments_map)}/{len(segment_paths)}",
+                                    )
+                        else:
+                            # Sequential processing
+                            for task in segment_tasks:
+                                idx, adjusted_path = process_segment(task)
                                 converted_segments_map[idx] = adjusted_path
                                 update(
                                     1,
-                                    description=f"Converted segment {len(converted_segments_map)}/{len(segment_paths)}",
+                                    description=f"Converting segment {idx + 1}/{len(segment_paths)}",
                                 )
-                    else:
-                        # Sequential processing
-                        for task in segment_tasks:
-                            idx, adjusted_path = process_segment(task)
-                            converted_segments_map[idx] = adjusted_path
-                            update(
-                                1,
-                                description=f"Converting segment {idx + 1}/{len(segment_paths)}",
-                            )
+                else:
+                    console.print("[green]All segments restored from checkpoint[/green]")
 
                 # Ensure segments are in correct order for concatenation
-                converted_segments = [
-                    converted_segments_map[i] for i in range(len(segment_tasks))
-                ]
+                converted_segments = [converted_segments_map[i] for i in range(len(segments))]
 
                 # Step 5: Concatenate processed segments
                 with self.progress_tracker.track_file_operation("Reassembling audio"):
@@ -560,10 +653,28 @@ class EleDubby:
                         converted_segments, os.path.join(temp_dir, "final_audio.wav")
                     )
 
-                    # Normalize audio
-                    normalized_audio = self.audio_processor.normalize_audio(
-                        final_audio, os.path.join(temp_dir, "normalized_audio.wav")
-                    )
+                    # Apply dynamic range compression (optional)
+                    if self.compress:
+                        compressed_audio = self.audio_processor.compress_audio(
+                            final_audio,
+                            os.path.join(temp_dir, "compressed_audio.wav"),
+                        )
+                        logger.debug("Applied dynamic range compression")
+                        processing_audio = compressed_audio
+                    else:
+                        processing_audio = final_audio
+
+                    # Normalize audio (optional, enabled by default)
+                    if self.normalize:
+                        normalized_audio = self.audio_processor.normalize_audio(
+                            processing_audio,
+                            os.path.join(temp_dir, "normalized_audio.wav"),
+                            target_db=self.target_db,
+                        )
+                        logger.debug(f"Normalized audio to {self.target_db} dB")
+                    else:
+                        normalized_audio = processing_audio
+                        logger.debug("Skipping audio normalization")
 
                     # Apply post-processing effects if configured
                     if fx:
@@ -605,6 +716,10 @@ class EleDubby:
                                 capture_output=True,
                             )
 
+                # Delete checkpoint on successful completion
+                self.checkpoint_manager.delete_checkpoint(input, voice)
+                logger.debug("Checkpoint deleted after successful completion")
+
                 # Calculate statistics
                 elapsed_time = time.time() - start_time
                 output_type = "video" if is_output_video else "audio"
@@ -615,14 +730,44 @@ class EleDubby:
                     f"Output {output_type}": os.path.basename(output),
                     "Voice used": voice,
                 }
+                if resuming_from_checkpoint:
+                    stats["Resumed from checkpoint"] = "Yes"
 
                 self.progress_tracker.print_summary(stats)
                 console.print(f"\n[green]✓ {file_type.capitalize()} processing complete![/green]")
 
             except Exception as e:
                 console.print(f"\n[red]Error during processing: {e}[/red]")
+                if self.resume:
+                    console.print(
+                        "[yellow]Checkpoint saved. Use --resume to continue later.[/yellow]"
+                    )
                 logger.exception("Processing failed")
                 sys.exit(1)
+
+
+def _expand_input_paths(input_pattern: str | Path) -> list[Path]:
+    """Expand input pattern to list of file paths.
+
+    Supports glob patterns like *.mp4, videos/*.mov, etc.
+
+    Args:
+        input_pattern: Single file path or glob pattern
+
+    Returns:
+        List of resolved file paths
+    """
+    pattern = str(input_pattern)
+
+    # Check if it contains glob characters
+    if any(c in pattern for c in ["*", "?", "["]):
+        # Expand glob pattern
+        matches = sorted(glob_module.glob(pattern, recursive=True))
+        return [Path(m) for m in matches if Path(m).is_file()]
+
+    # Single file
+    path = Path(pattern)
+    return [path] if path.is_file() else []
 
 
 def dub(
@@ -636,13 +781,18 @@ def dub(
     seg_max: float = DEFAULT_MAX_SEGMENT_DURATION,
     parallel: int = 1,
     preview: float = 0,
+    normalize: bool = True,
+    target_db: float = -23.0,
+    compress: bool = False,
+    resume: bool = False,
+    denoise: float = 0.0,
 ):
     """eledubby - Voice dubbing tool using ElevenLabs speech-to-speech API.
 
     Args:
-        input: Path to input video or audio file
+        input: Path to input video/audio file or glob pattern (e.g., "*.mp4", "videos/*.mov")
         voice: ElevenLabs voice ID to use for dubbing (default: ELEVENLABS_VOICE_ID environment variable)
-        output: Path to output file (default: auto-generated). Can be video or audio.
+        output: Path to output file or directory for batch mode (default: auto-generated)
         api_key: ElevenLabs API key override (defaults to env var)
         verbose: Enable verbose logging output
         fx: Audio effects - 0/off/False for none, 1/on/True for default config, or path to TOML config
@@ -650,8 +800,74 @@ def dub(
         seg_max: Maximum segment duration in seconds (default: 20)
         parallel: Number of parallel workers for segment processing (default: 1 = sequential)
         preview: Preview mode - process only first N seconds (default: 0 = full file)
+        normalize: Enable EBU R128 loudness normalization (default: True)
+        target_db: Target loudness in dB for normalization (default: -23.0 dB)
+        compress: Apply dynamic range compression before normalization (default: False)
+        resume: Resume from checkpoint if processing was interrupted (default: False)
+        denoise: Noise reduction strength 0.0-1.0 (0=disabled, default: 0)
     """
+    # Expand input pattern to list of files
+    input_files = _expand_input_paths(input)
 
+    if not input_files:
+        console.print(f"[red]Error: No files found matching: {input}[/red]")
+        sys.exit(1)
+
+    # Batch mode: multiple files
+    if len(input_files) > 1:
+        console.print(f"[bold]Batch mode:[/bold] Found {len(input_files)} files to process")
+
+        # Determine output directory
+        if output:
+            output_dir = Path(output)
+            if output_dir.suffix:  # Has extension, treat as file pattern
+                output_dir = output_dir.parent
+            output_dir.mkdir(parents=True, exist_ok=True)
+        else:
+            output_dir = None
+
+        dubber = EleDubby(
+            verbose=verbose,
+            seg_min=seg_min,
+            seg_max=seg_max,
+            api_key=api_key,
+            parallel=parallel,
+            preview=preview,
+            normalize=normalize,
+            target_db=target_db,
+            compress=compress,
+            resume=resume,
+            denoise=denoise,
+        )
+
+        success_count = 0
+        fail_count = 0
+        for i, input_file in enumerate(input_files, 1):
+            console.print(
+                f"\n[bold cyan]Processing file {i}/{len(input_files)}:[/bold cyan] {input_file.name}"
+            )
+
+            # Generate output path for this file
+            if output_dir:
+                file_output = str(output_dir / f"{input_file.stem}_dubbed{input_file.suffix}")
+            else:
+                file_output = None
+
+            try:
+                dubber.process(str(input_file), voice, file_output, fx)
+                success_count += 1
+            except Exception as e:
+                console.print(f"[red]Failed: {e}[/red]")
+                fail_count += 1
+                if verbose:
+                    logger.exception("Processing failed")
+
+        console.print(
+            f"\n[bold]Batch complete:[/bold] {success_count} succeeded, {fail_count} failed"
+        )
+        return
+
+    # Single file mode
     dubber = EleDubby(
         verbose=verbose,
         seg_min=seg_min,
@@ -659,8 +875,13 @@ def dub(
         api_key=api_key,
         parallel=parallel,
         preview=preview,
+        normalize=normalize,
+        target_db=target_db,
+        compress=compress,
+        resume=resume,
+        denoise=denoise,
     )
-    dubber.process(input, voice, output, fx)
+    dubber.process(str(input_files[0]), voice, output, fx)
 
 
 def fx(
@@ -830,6 +1051,18 @@ def _safe_filename_component(value: str) -> str:
     return "".join(ch if ch in allowed else "_" for ch in value) or "_"
 
 
+def _slug(text: str) -> str:
+    """Create a safe slug from text for use in filenames.
+
+    Args:
+        text: Text to slugify
+
+    Returns:
+        Sanitized slug suitable for filenames
+    """
+    return sanitize_filename(slugify(text))
+
+
 def _unique_output_path(path: Path) -> Path:
     """Return a non-existing path by adding a numeric suffix if needed."""
     if not path.exists():
@@ -850,14 +1083,24 @@ def cast(
     voices_path: str | Path | None = None,
     voices_list: str | None = None,
     api_key: str | None = None,
+    force: bool = False,
     verbose: bool = False,
 ) -> None:
     """Generate MP3s for a text using one or more voices.
 
     Voice selection:
-    - No voices args: use all voices for the account
+    - No voices args: use all non-premade voices for the account
     - `--voices_path`: one voice per line, optional `;api_key` per line
     - `--voices_list`: comma-separated voice IDs
+
+    Args:
+        text_path: Path to text file to synthesize
+        output: Output folder path
+        voices_path: Text file with voice IDs (one per line, optionally `voice_id;api_key`)
+        voices_list: Comma-separated voice IDs
+        api_key: ElevenLabs API key
+        force: Regenerate even if output file exists
+        verbose: Enable verbose logging
     """
     logger.remove()
     if verbose:
@@ -879,11 +1122,18 @@ def cast(
         console.print(f"[red]Error: Text file is empty: {text_file}[/red]")
         sys.exit(1)
 
+    # voice_specs: list of (voice_id, api_key, voice_name)
+    # voice_name is used for slug in filename, can be None for explicit lists
     if voices_list:
-        voice_specs = _parse_voice_specs_from_voices_list(voices_list)
+        # Explicit list: (voice_id, api_key, None)
+        parsed = _parse_voice_specs_from_voices_list(voices_list)
+        voice_specs = [(vid, key, None) for vid, key in parsed]
     elif voices_path:
-        voice_specs = _parse_voice_specs_from_voices_path(voices_path)
+        # From file: (voice_id, api_key, None)
+        parsed = _parse_voice_specs_from_voices_path(voices_path)
+        voice_specs = [(vid, key, None) for vid, key in parsed]
     else:
+        # All voices: filter out "premade" category
         try:
             client = ElevenLabsClient(api_key=api_key)
         except ValueError:
@@ -891,7 +1141,18 @@ def cast(
             console.print("Provide --api_key or set ELEVENLABS_API_KEY")
             sys.exit(1)
         voices = client.list_voices()
-        voice_specs = [(voice["id"], api_key) for voice in voices if voice.get("id")]
+        voice_specs = []
+        skipped_premade = 0
+        for voice in voices:
+            if not voice.get("id"):
+                continue
+            # Skip premade voices
+            if voice.get("category", "").lower() == "premade":
+                skipped_premade += 1
+                continue
+            voice_specs.append((voice["id"], api_key, voice.get("name", "")))
+        if skipped_premade > 0:
+            console.print(f"[dim]Skipped {skipped_premade} premade voices[/dim]")
 
     if not voice_specs:
         console.print("[red]Error: No voices selected[/red]")
@@ -901,8 +1162,11 @@ def cast(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     clients_by_key: dict[str | None, ElevenLabsClient] = {}
+    generated = 0
+    skipped = 0
+    failed = 0
 
-    for voice_id, per_voice_key in voice_specs:
+    for voice_id, per_voice_key, voice_name in voice_specs:
         effective_key = per_voice_key or api_key
         if effective_key not in clients_by_key:
             try:
@@ -912,12 +1176,633 @@ def cast(
                 console.print("Provide --api_key or specify `voice_id;api_key` in --voices_path")
                 sys.exit(1)
 
-        out_name = f"{_safe_filename_component(voice_id)}.mp3"
-        out_path = _unique_output_path(output_dir / out_name)
+        # Build filename: {voice_id}-{voice_slug}.mp3
+        if voice_name:
+            voice_slug = _slug(voice_name)
+            out_name = f"{voice_id}-{voice_slug}.mp3"
+        else:
+            # No name available, just use voice_id
+            out_name = f"{voice_id}.mp3"
+
+        out_path = output_dir / out_name
+
+        # Skip if file exists and not forcing
+        if out_path.exists() and not force:
+            console.print(f"[dim]Skipping (exists):[/dim] {voice_id} → {out_path}")
+            skipped += 1
+            continue
+
         console.print(f"[bold]Voice:[/bold] {voice_id} → {out_path}")
 
-        clients_by_key[effective_key].text_to_speech(
-            text=text,
-            voice_id=voice_id,
-            output_path=str(out_path),
+        try:
+            clients_by_key[effective_key].text_to_speech(
+                text=text,
+                voice_id=voice_id,
+                output_path=str(out_path),
+            )
+            generated += 1
+        except Exception as e:
+            # Extract meaningful error message
+            error_msg = str(e)
+            if "detected_captcha_voice" in error_msg:
+                console.print("  [yellow]Skipped (requires verification)[/yellow]")
+            elif "status_code: 403" in error_msg:
+                console.print("  [yellow]Skipped (access denied)[/yellow]")
+            elif "status_code: 429" in error_msg:
+                console.print("  [yellow]Skipped (rate limited)[/yellow]")
+            else:
+                console.print(f"  [red]Failed: {error_msg[:100]}[/red]")
+            failed += 1
+            continue
+
+    console.print(f"\n[green]Generated {generated} files[/green]", end="")
+    if skipped > 0 or failed > 0:
+        parts = []
+        if skipped > 0:
+            parts.append(f"skipped {skipped} existing")
+        if failed > 0:
+            parts.append(f"failed {failed}")
+        console.print(f" [dim]({', '.join(parts)})[/dim]")
+    else:
+        console.print()
+
+
+def _get_vst3_search_paths() -> list[Path]:
+    """Get system-specific VST3 plugin search paths."""
+    search_paths = []
+    system = platform.system()
+
+    if system == "Darwin":  # macOS
+        home = Path.home()
+        search_paths = [
+            home / "Library/Audio/Plug-Ins/VST3",
+            Path("/Library/Audio/Plug-Ins/VST3"),
+        ]
+    elif system == "Windows":
+        search_paths = [
+            Path("C:/Program Files/Common Files/VST3"),
+            Path("C:/Program Files (x86)/Common Files/VST3"),
+        ]
+    elif system == "Linux":
+        home = Path.home()
+        search_paths = [home / ".vst3", Path("/usr/lib/vst3"), Path("/usr/local/lib/vst3")]
+
+    return [p for p in search_paths if p.exists()]
+
+
+def _discover_vst3_plugins() -> list[dict]:
+    """Discover all installed VST3 plugins.
+
+    Returns:
+        List of plugin info dicts with name and path
+    """
+    plugins = []
+    search_paths = _get_vst3_search_paths()
+
+    for search_path in search_paths:
+        for vst_file in search_path.rglob("*.vst3"):
+            plugins.append(
+                {
+                    "name": vst_file.stem,
+                    "path": str(vst_file),
+                    "location": str(search_path),
+                }
+            )
+
+    # Sort by name
+    return sorted(plugins, key=lambda p: p["name"].lower())
+
+
+def plugins(
+    json: bool = False,
+) -> None:
+    """List installed VST3 plugins.
+
+    Args:
+        json: Output as JSON instead of table
+    """
+    import json as json_module
+
+    plugin_list = _discover_vst3_plugins()
+    search_paths = _get_vst3_search_paths()
+
+    if not plugin_list:
+        console.print("[yellow]No VST3 plugins found[/yellow]")
+        console.print(f"Searched: {', '.join(str(p) for p in search_paths)}")
+        return
+
+    if json:
+        print(json_module.dumps(plugin_list, indent=2))
+    else:
+        console.print(f"[bold]Found {len(plugin_list)} VST3 plugins:[/bold]\n")
+        for plugin in plugin_list:
+            console.print(f"  [cyan]{plugin['name']}[/cyan]")
+            console.print(f"    {plugin['path']}")
+
+
+def _resolve_plugin_by_name(plugin_name: str) -> str | None:
+    """Find a plugin path by name (partial match supported).
+
+    Args:
+        plugin_name: Plugin name or path
+
+    Returns:
+        Full path to plugin or None if not found
+    """
+    # If it's already an absolute path that exists, return it
+    if os.path.isabs(plugin_name) and os.path.exists(plugin_name):
+        return plugin_name
+
+    # Search for matching plugins
+    plugin_list = _discover_vst3_plugins()
+    plugin_name_lower = plugin_name.lower()
+
+    # Exact match first
+    for p in plugin_list:
+        if (
+            p["name"].lower() == plugin_name_lower
+            or p["name"].lower() == plugin_name_lower + ".vst3"
+        ):
+            return p["path"]
+
+    # Partial match
+    for p in plugin_list:
+        if plugin_name_lower in p["name"].lower():
+            return p["path"]
+
+    return None
+
+
+def plugin_params(
+    plugin: str,
+    json: bool = False,
+    toml: bool = False,
+) -> None:
+    """Show parameters for a VST3 plugin.
+
+    Use this to discover what parameters a plugin exposes for use in preset TOML files.
+
+    Args:
+        plugin: Plugin name or path (partial match supported)
+        json: Output as JSON
+        toml: Output as TOML preset template
+    """
+    import json as json_module
+
+    resolved = _resolve_plugin_by_name(plugin)
+    if not resolved:
+        console.print(f"[red]Plugin not found: {plugin}[/red]")
+        console.print("Use 'eledubby plugins' to list available plugins")
+        return
+
+    try:
+        logger.info(f"Loading plugin: {resolved}")
+        vst_plugin = pedalboard.load_plugin(resolved)
+    except Exception as e:
+        console.print(f"[red]Failed to load plugin: {e}[/red]")
+        return
+
+    # Get plugin parameters - pedalboard plugins expose params as attributes
+    # Filter out private attributes and methods
+    params = {}
+    plugin_name = Path(resolved).name
+
+    for attr_name in dir(vst_plugin):
+        if attr_name.startswith("_"):
+            continue
+        try:
+            attr_val = getattr(vst_plugin, attr_name)
+            # Skip methods and non-numeric/string values
+            if callable(attr_val):
+                continue
+            if isinstance(attr_val, (int, float, str, bool)):
+                params[attr_name] = attr_val
+        except Exception:
+            continue
+
+    if not params:
+        console.print(f"[yellow]No accessible parameters found for {plugin_name}[/yellow]")
+        return
+
+    if json:
+        print(
+            json_module.dumps(
+                {"plugin": plugin_name, "path": resolved, "parameters": params}, indent=2
+            )
         )
+    elif toml:
+        # Output as TOML preset template
+        console.print(f"# Preset template for {plugin_name}")
+        console.print(f'["{plugin_name}"]')
+        for name, value in sorted(params.items()):
+            if isinstance(value, str):
+                console.print(f'{name} = "{value}"')
+            elif isinstance(value, bool):
+                console.print(f"{name} = {'true' if value else 'false'}")
+            else:
+                console.print(f"{name} = {value}")
+    else:
+        console.print(f"[bold]Parameters for {plugin_name}:[/bold]")
+        console.print(f"Path: {resolved}\n")
+        for name, value in sorted(params.items()):
+            val_type = type(value).__name__
+            console.print(f"  [cyan]{name}[/cyan] = {value}  [dim]({val_type})[/dim]")
+
+
+def presets(
+    path: str | Path | None = None,
+) -> None:
+    """List available FX preset TOML files.
+
+    Searches for .toml preset files in the examples directory and optionally a custom path.
+
+    Args:
+        path: Additional directory to search for presets
+    """
+    # Search locations
+    search_dirs = [
+        Path(__file__).parent.parent.parent / "examples",  # Package examples
+        Path.cwd() / "presets",  # Local presets folder
+        Path.cwd(),  # Current directory
+    ]
+
+    if path:
+        search_dirs.insert(0, Path(path))
+
+    found_presets = []
+    seen_paths = set()
+
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+
+        for toml_file in search_dir.glob("*.toml"):
+            if toml_file.resolve() in seen_paths:
+                continue
+            seen_paths.add(toml_file.resolve())
+
+            # Try to extract description from first comment line
+            description = ""
+            try:
+                with open(toml_file) as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("#") and not line.startswith("# this_file"):
+                            description = line.lstrip("#").strip()
+                            break
+                        if line and not line.startswith("#"):
+                            break
+            except Exception:
+                pass
+
+            found_presets.append(
+                {
+                    "name": toml_file.stem,
+                    "path": str(toml_file),
+                    "description": description,
+                }
+            )
+
+    if not found_presets:
+        console.print("[yellow]No preset files found[/yellow]")
+        console.print("Create .toml files in ./presets/ or use --path to specify a directory")
+        return
+
+    console.print(f"[bold]Found {len(found_presets)} presets:[/bold]\n")
+    for preset in sorted(found_presets, key=lambda p: p["name"]):
+        console.print(f"  [cyan]{preset['name']}[/cyan]")
+        if preset["description"]:
+            console.print(f"    {preset['description']}")
+        console.print(f"    [dim]{preset['path']}[/dim]")
+
+
+def quality(
+    input: str | Path,
+    compare: str | Path | None = None,
+    json: bool = False,
+    verbose: bool = False,
+) -> None:
+    """Analyze audio quality and detect issues.
+
+    Checks for clipping, DC offset, low SNR, excessive silence, and other quality issues.
+
+    Args:
+        input: Path to audio file to analyze
+        compare: Optional second file to compare against (e.g., original vs processed)
+        json: Output as JSON instead of formatted text
+        verbose: Show all metrics even if passing
+    """
+    import json as json_module
+
+    if verbose:
+        logger.enable("eledubby")
+
+    input_path = Path(input)
+    if not input_path.exists():
+        console.print(f"[red]File not found: {input}[/red]")
+        sys.exit(1)
+
+    checker = AudioQualityChecker()
+
+    if compare:
+        compare_path = Path(compare)
+        if not compare_path.exists():
+            console.print(f"[red]Comparison file not found: {compare}[/red]")
+            sys.exit(1)
+
+        result = checker.compare(str(input_path), str(compare_path))
+
+        if json:
+            print(json_module.dumps(result, indent=2))
+        else:
+            console.print("[bold]Quality Comparison Report[/bold]\n")
+
+            console.print("[cyan]Original:[/cyan]")
+            _print_quality_report(result["original"], verbose)
+
+            console.print("\n[cyan]Processed:[/cyan]")
+            _print_quality_report(result["processed"], verbose)
+
+            console.print("\n[cyan]Changes:[/cyan]")
+            delta = result["delta"]
+            console.print(f"  Peak: {delta['peak_db']:+.1f} dB")
+            console.print(f"  RMS: {delta['rms_db']:+.1f} dB")
+            console.print(f"  Dynamic Range: {delta['dynamic_range_db']:+.1f} dB")
+    else:
+        report = checker.analyze(str(input_path))
+
+        if json:
+            print(json_module.dumps(report.to_dict(), indent=2))
+        else:
+            console.print(f"[bold]Quality Report: {input_path.name}[/bold]\n")
+            _print_quality_report(report.to_dict(), verbose)
+
+            if report.passed:
+                console.print("\n[green]✓ All quality checks passed[/green]")
+            else:
+                console.print(f"\n[red]✗ {len(report.issues)} issue(s) found[/red]")
+
+
+def _print_quality_report(report: dict, verbose: bool = False) -> None:
+    """Print formatted quality report."""
+    console.print(f"  Duration: {report['duration']:.2f}s")
+    console.print(f"  Sample Rate: {report['sample_rate']} Hz")
+    console.print(f"  Channels: {report['channels']}")
+    console.print(f"  Bit Depth: {report['bit_depth']}")
+
+    if verbose or not report.get("passed", True):
+        console.print(f"  Peak: {report['peak_db']:.1f} dB")
+        console.print(f"  RMS: {report['rms_db']:.1f} dB")
+        if report.get("snr_db") is not None:
+            console.print(f"  SNR: {report['snr_db']:.1f} dB")
+        console.print(f"  Dynamic Range: {report['dynamic_range_db']:.1f} dB")
+        console.print(f"  Crest Factor: {report['crest_factor']:.2f}")
+        console.print(f"  DC Offset: {report['dc_offset']:.6f}")
+        console.print(f"  Silence: {report['silence_ratio'] * 100:.1f}%")
+        console.print(f"  Clipping: {report['clipping_ratio'] * 100:.3f}%")
+        if report.get("loudness_lufs") is not None:
+            console.print(f"  Loudness: {report['loudness_lufs']:.1f} LUFS")
+
+    if report.get("issues"):
+        console.print("\n  [yellow]Issues:[/yellow]")
+        for issue in report["issues"]:
+            console.print(f"    • {issue}")
+
+
+def voices(
+    api_key: str | None = None,
+    json: bool = False,
+    detailed: bool = False,
+) -> None:
+    """List available ElevenLabs voices.
+
+    Args:
+        api_key: ElevenLabs API key override (defaults to env var)
+        json: Output as JSON instead of CSV
+        detailed: Include additional voice metadata (description, preview_url, labels)
+    """
+    import csv
+    import io
+    import json as json_module
+
+    try:
+        client = ElevenLabsClient(api_key=api_key)
+    except ValueError:
+        console.print("[red]Error: Missing ElevenLabs API key[/red]")
+        console.print("Provide --api_key or set ELEVENLABS_API_KEY")
+        sys.exit(1)
+
+    voice_list = client.list_voices(detailed=detailed)
+
+    if not voice_list:
+        console.print("[yellow]No voices found[/yellow]")
+        sys.exit(0)
+
+    if json:
+        print(json_module.dumps(voice_list, indent=2))
+    else:
+        # CSV output
+        if detailed:
+            fieldnames = ["id", "name", "category", "description", "preview_url", "labels"]
+        else:
+            fieldnames = ["id", "name", "category"]
+
+        output = io.StringIO()
+        writer = csv.DictWriter(output, fieldnames=fieldnames, extrasaction="ignore")
+        writer.writeheader()
+        for voice in voice_list:
+            # Convert labels dict to string for CSV
+            if "labels" in voice and isinstance(voice["labels"], dict):
+                voice = voice.copy()
+                voice["labels"] = ";".join(f"{k}={v}" for k, v in voice["labels"].items())
+            writer.writerow(voice)
+        print(output.getvalue(), end="")
+
+
+def checkpoints(
+    clean: bool = False,
+    max_age_days: int = 7,
+    json: bool = False,
+) -> None:
+    """List and manage processing checkpoints.
+
+    Checkpoints allow resuming interrupted dubbing jobs. Use --clean to remove
+    old checkpoints.
+
+    Args:
+        clean: Remove checkpoints older than max_age_days
+        max_age_days: Maximum age in days for cleanup (default: 7)
+        json: Output as JSON instead of table
+    """
+    import json as json_module
+    from datetime import datetime
+
+    manager = CheckpointManager()
+
+    if clean:
+        removed = manager.cleanup_old_checkpoints(max_age_days)
+        console.print(
+            f"[green]Removed {removed} checkpoints older than {max_age_days} days[/green]"
+        )
+        return
+
+    checkpoint_list = manager.list_checkpoints()
+
+    if not checkpoint_list:
+        console.print("[yellow]No checkpoints found[/yellow]")
+        return
+
+    if json:
+        print(json_module.dumps(checkpoint_list, indent=2, default=str))
+    else:
+        console.print(f"[bold]Found {len(checkpoint_list)} checkpoint(s):[/bold]\n")
+        for cp in checkpoint_list:
+            modified = datetime.fromtimestamp(cp["modified"]).strftime("%Y-%m-%d %H:%M")
+            console.print(f"  [cyan]{cp['job_id']}[/cyan]")
+            console.print(f"    Voice: {cp['voice_id']}")
+            console.print(f"    Progress: {cp['progress']} segments")
+            console.print(f"    Modified: {modified}")
+
+
+def recover(
+    input: str | Path,
+    voice: str,
+    output: str | Path | None = None,
+) -> None:
+    """Recover partial results from an interrupted dubbing job.
+
+    Creates an audio file with all processed segments and silence placeholders
+    for segments that weren't completed. Useful for previewing partial progress
+    or salvaging work from an interrupted job.
+
+    Args:
+        input: Path to the original input file (used to identify checkpoint)
+        voice: ElevenLabs voice ID (used to identify checkpoint)
+        output: Output path for recovered audio (default: input_partial.wav)
+    """
+    input_path = Path(input)
+    if not input_path.exists():
+        console.print(f"[red]Error: Input file not found: {input}[/red]")
+        sys.exit(1)
+
+    manager = CheckpointManager()
+
+    # Check if checkpoint exists
+    if not manager.has_checkpoint(input_path, voice):
+        console.print("[red]Error: No checkpoint found for this input/voice combination[/red]")
+        console.print("Use 'eledubby checkpoints' to see available checkpoints")
+        sys.exit(1)
+
+    # Get progress info
+    progress = manager.get_checkpoint_progress(input_path, voice)
+
+    if not progress["recoverable"]:
+        console.print("[red]Error: No segments have been processed yet[/red]")
+        sys.exit(1)
+
+    console.print("[bold]Checkpoint Progress:[/bold]")
+    console.print(
+        f"  Processed: {progress['processed_segments']}/{progress['total_segments']} segments"
+    )
+    console.print(f"  Complete: {progress['percent_complete']:.1f}%")
+    console.print(
+        f"  Duration: {progress['processed_duration']:.1f}s / {progress['total_duration']:.1f}s"
+    )
+
+    # Set default output path
+    if not output:
+        output = input_path.parent / f"{input_path.stem}_partial.wav"
+    output = Path(output)
+
+    console.print(f"\n[bold]Recovering partial result to:[/bold] {output}")
+
+    try:
+        result_path, processed, total = manager.recover_partial_result(input_path, voice, output)
+        console.print(f"[green]✓ Recovered {processed}/{total} segments to: {result_path}[/green]")
+        console.print("[dim]Note: Missing segments are replaced with silence[/dim]")
+    except Exception as e:
+        console.print(f"[red]Error recovering partial result: {e}[/red]")
+        sys.exit(1)
+
+
+DEFAULT_PREVIEW_TEXT = "Hello! This is a preview of my voice. How does it sound to you?"
+
+
+def preview(
+    voice: str | None = None,
+    text: str = DEFAULT_PREVIEW_TEXT,
+    output: str | Path | None = None,
+    api_key: str | None = None,
+    play: bool = False,
+) -> None:
+    """Preview a voice by generating a short audio sample.
+
+    Generate a short TTS sample to test how a voice sounds before committing
+    to a full dubbing job. If no voice is specified, lists available voices.
+
+    Args:
+        voice: Voice ID to preview (if not provided, lists available voices)
+        text: Text to speak (default: "Hello! This is a preview...")
+        output: Output file path (default: preview_{voice_id}.mp3)
+        api_key: ElevenLabs API key override (defaults to env var)
+        play: Play the audio after generation (requires ffplay)
+    """
+    try:
+        client = ElevenLabsClient(api_key=api_key)
+    except ValueError:
+        console.print("[red]Error: Missing ElevenLabs API key[/red]")
+        console.print("Provide --api_key or set ELEVENLABS_API_KEY")
+        sys.exit(1)
+
+    # If no voice specified, list available voices
+    if not voice:
+        console.print("[bold]Available voices:[/bold]\n")
+        voice_list = client.list_voices(detailed=True)
+        for v in voice_list:
+            console.print(f"  [cyan]{v['id']}[/cyan] - {v['name']}")
+            if v.get("category"):
+                console.print(f"    Category: {v['category']}")
+        console.print("\n[dim]Use: eledubby preview --voice <voice_id>[/dim]")
+        return
+
+    # Validate voice
+    if not client.validate_voice_id(voice):
+        console.print(f"[red]Error: Voice ID not found: {voice}[/red]")
+        console.print("Use 'eledubby voices' to see available voices")
+        sys.exit(1)
+
+    # Generate output path
+    output = Path.cwd() / f"preview_{voice}.mp3" if not output else Path(output)
+
+    console.print(f"[bold]Voice ID:[/bold] {voice}")
+    console.print(f"[bold]Text:[/bold] {text[:50]}{'...' if len(text) > 50 else ''}")
+    console.print(f"[bold]Output:[/bold] {output}")
+
+    # Generate preview
+    try:
+        client.text_to_speech(
+            text=text,
+            voice_id=voice,
+            output_path=str(output),
+        )
+        console.print(f"[green]✓ Preview saved to: {output}[/green]")
+
+        # Play audio if requested
+        if play:
+            console.print("[dim]Playing audio...[/dim]")
+            try:
+                subprocess.run(
+                    ["ffplay", "-nodisp", "-autoexit", str(output)],
+                    capture_output=True,
+                    check=True,
+                )
+            except FileNotFoundError:
+                console.print(
+                    "[yellow]ffplay not found - install ffmpeg to enable playback[/yellow]"
+                )
+            except subprocess.CalledProcessError:
+                console.print("[yellow]Playback failed[/yellow]")
+
+    except Exception as e:
+        console.print(f"[red]Error generating preview: {e}[/red]")
+        sys.exit(1)

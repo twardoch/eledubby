@@ -1,0 +1,34 @@
+# this_file: examples/fx_podcast.toml
+# Podcast mastering preset for broadcast-ready audio
+# Use with: eledubby fx --input podcast.wav --config examples/fx_podcast.toml
+
+# Gate to reduce background noise during pauses
+# ["Waves NS1.vst3"]
+# threshold = -40.0
+
+# Multiband compression for consistent tonal balance
+# ["FabFilter Pro-MB.vst3"]
+# band_count = 3
+# threshold = -20.0
+
+# Standard compression for dynamics control
+["TDR Kotelnikov.vst3"]
+threshold = -16.0
+ratio = 4.0
+attack = 10.0
+release = 150.0
+makeup = 4.0
+
+# EQ for voice clarity
+# ["FabFilter Pro-Q 3.vst3"]
+# band1_frequency = 100
+# band1_gain = -3
+# band2_frequency = 3000
+# band2_gain = 2
+# band3_frequency = 8000
+# band3_gain = 1
+
+# Loudness maximizer for broadcast levels (-16 LUFS)
+["TDR Limiter 6 GE.vst3"]
+ceiling = -1.0
+release = 100.0

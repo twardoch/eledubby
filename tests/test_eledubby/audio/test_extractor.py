@@ -24,9 +24,7 @@ class TestAudioExtractor:
         extractor = AudioExtractor(sample_rate=44100)
         assert extractor.sample_rate == 44100
 
-    def test_extract_when_success_then_returns_output_path(
-        self, tmp_path: Path
-    ) -> None:
+    def test_extract_when_success_then_returns_output_path(self, tmp_path: Path) -> None:
         from eledubby.audio.extractor import AudioExtractor
 
         extractor = AudioExtractor()
@@ -41,9 +39,7 @@ class TestAudioExtractor:
 
         assert result == str(output_path)
 
-    def test_extract_when_ffmpeg_fails_then_raises_runtime_error(
-        self, tmp_path: Path
-    ) -> None:
+    def test_extract_when_ffmpeg_fails_then_raises_runtime_error(self, tmp_path: Path) -> None:
         from eledubby.audio.extractor import AudioExtractor
 
         extractor = AudioExtractor()
@@ -57,9 +53,7 @@ class TestAudioExtractor:
             with pytest.raises(RuntimeError, match="Failed to extract audio"):
                 extractor.extract(str(video_path), str(output_path))
 
-    def test_extract_when_called_then_uses_correct_ffmpeg_args(
-        self, tmp_path: Path
-    ) -> None:
+    def test_extract_when_called_then_uses_correct_ffmpeg_args(self, tmp_path: Path) -> None:
         from eledubby.audio.extractor import AudioExtractor
 
         extractor = AudioExtractor(sample_rate=22050)

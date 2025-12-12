@@ -1,5 +1,16 @@
 # PLAN.md - Eledubby Voice Dubbing Tool
 
+When you output files e.g. with the 'cast' tool, make default paths like f"{voice_id}-{voice_slug}.mp3" where voice_slug is the voice_name processed through: 
+
+```
+# python-slugify[unidecode] pathvalidate
+from pathvalidate import sanitize_filename
+from slugify import slugify
+
+def slug(text): 
+	return sanitize_filename(slugify(text))
+```
+
 ## Project Overview
 
 **Eledubby** is a Python-based voice dubbing and audio processing tool that performs speech-to-speech conversion on video and audio files using ElevenLabs API, with professional audio post-processing capabilities via VST3 plugins.

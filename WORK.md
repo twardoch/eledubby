@@ -1,133 +1,137 @@
 # WORK.md - Current Work Progress
 
-## Latest Work - Enhanced Audio/Video Support and FX Function
+## Completed Features
 
-### In Progress / Just Done - `cast` command + API key overrides
+### CLI Commands
+- `dub` - Voice dubbing with ElevenLabs speech-to-speech
+- `fx` - Audio effects only (no dubbing)
+- `cast` - Generate MP3s across multiple voices
+- `voices` - List available ElevenLabs voices (CSV/JSON)
+- `plugins` - List installed VST3 plugins
+- `checkpoints` - List and manage processing checkpoints
+- `preview` - Test voice before dubbing with TTS sample
+- `recover` - Recover partial results from interrupted jobs
 
-- Added `cast` CLI command to synthesize a text file to MP3 across multiple voices.
-- Added optional `--api_key` to `dub`, `fx`, and `cast` (overrides `ELEVENLABS_API_KEY`).
-- `cast --voices_path` supports per-line `voice_id;api_key` for multi-account voice sets.
-- Tests: `pytest` (6 tests) passing locally.
+### Core Features
+- Parallel segment processing (`--parallel N`)
+- Preview mode (`--preview N` seconds)
+- Batch processing with glob patterns (`--input "*.mp4"`)
+- EBU R128 loudness normalization (`--normalize`, `--target_db`)
+- Dynamic range compression (`--compress`)
+- Noise reduction preprocessing (`--denoise 0.0-1.0`)
+- Resume capability (`--resume` flag)
+- VST3 plugin support via pedalboard
+- Multi-account API key support
 
-### New Features Added
+### Infrastructure
+- 150 unit tests (audio, api, utils, integration, e2e, checkpoint, preview, benchmarks, memory monitoring, recovery)
+- GitHub Actions CI/CD (.github/workflows/ci.yml)
+- Docker containerization (Dockerfile)
+- Example FX configurations (examples/*.toml)
+- Troubleshooting guide in README (Section 14)
 
-1. **`fx` Function**: Apply audio effects without dubbing
-   - Works with both audio and video files
-   - Extracts audio from video if needed
-   - Can output audio from video input
-   - Uses `--config` argument for VST3 configuration
+## Test Status
 
-2. **Audio File Support in `dub` Function**:
-   - Now accepts audio files as input (MP3, WAV, FLAC, etc.)
-   - Audio-to-audio dubbing without video processing
-   - Automatic format detection and conversion
+All 159 tests passing (lint-free)
 
-3. **Flexible Input/Output Handling**:
-   - Automatic detection of file types (audio vs video)
-   - Smart output format determination
-   - Video → Video, Video → Audio, Audio → Audio conversions
-   - Cannot convert Audio → Video (validated)
+## Recent Session Work
 
-4. **Enhanced File Type Detection**:
-   - MIME type detection
-   - Extension-based fallback
-   - FFprobe verification for uncertain cases
+### Completed This Session
+1. **Audio Quality Checker** (`eledubby quality`)
+   - New `quality` CLI command for audio quality analysis
+   - New `AudioQualityChecker` class in `src/eledubby/audio/quality.py`
+   - Metrics: peak/RMS levels, SNR, clipping, DC offset, dynamic range, silence ratio, LUFS
+   - Comparison mode to compare original vs processed audio
+   - JSON output for programmatic use
+   - 9 new tests for quality assessment
+   - Test count now at 159
 
-## Previous Work - Audio Post-Processing with Pedalboard (Issue #301)
+2. **Memory Usage Optimization** (`SilenceAnalyzer`)
+   - Streaming analysis for large files (>50MB)
+   - Files ≤50MB: fast full-memory analysis
+   - Files >50MB: chunk-based streaming with 10-second chunks
+   - Two-pass approach: first pass finds global max, second calculates silence scores
+   - Added `soundfile` as optional dependency for efficient streaming I/O
+   - Graceful fallback if soundfile not installed
 
-Successfully integrated the `pedalboard` library for VST3 plugin support in the eledubby project:
+3. **Plugin Preset Management** (`eledubby plugin-params`, `eledubby presets`)
+   - New `plugin-params` command to show VST3 plugin parameters
+   - Supports `--json` and `--toml` output formats
+   - `--toml` generates ready-to-use preset template
+   - New `presets` command to list available FX preset files
+   - Searches examples/, ./presets/, and current directory
+   - Updated README with new command documentation
 
-### 1. Added Dependencies
-- Added `pedalboard>=0.9.0` for VST3 plugin support
-- Added `toml>=0.10.2` for configuration file parsing
-- Added `loguru>=0.7.0` to dependencies (was already used but missing)
+3. **Cast Command Enhancements** (`eledubby cast`)
+   - Skip "premade" voices when iterating over all voices
+   - New filename format: `{voice_id}-{voice_slug}.mp3` using slugify + pathvalidate
+   - Added `--force` flag to regenerate existing output files (default: skip existing)
+   - Graceful error handling: skips voices that fail API calls (captcha, 403, 429)
+   - Added dependencies: `python-slugify[unidecode]`, `pathvalidate`
+   - Updated README documentation with new options and notes
 
-### 2. Implemented New Command-Line Arguments
-- `--fx`: Controls audio post-processing
-  - `0/off/False`: No post-processing
-  - `1/on/True`: Use default config from `src/eledubby/config.toml`
-  - Path to TOML file: Use custom configuration
-- `--seg_min`: Minimum segment duration (default: 10 seconds)
-- `--seg_max`: Maximum segment duration (default: 20 seconds)
+3. **Memory Usage Monitoring** (`tests/test_eledubby/test_benchmarks.py::TestMemoryMonitoring`)
+   - Silence analyzer memory usage test (< 100MB for 2-min audio)
+   - Checkpoint state memory usage test (< 5MB for 1000 segments)
+   - Audio array memory efficiency test
+   - Progress tracker memory leak test
+   - 4 new memory monitoring tests
 
-### 3. VST3 Plugin Support Implementation
-- Added `_resolve_vst3_path()` method for automatic plugin discovery
-- Searches system-specific directories:
-  - macOS: `~/Library/Audio/Plug-Ins/VST3` and `/Library/Audio/Plug-Ins/VST3`
-  - Windows: `C:\Program Files\Common Files\VST3` and `C:\Program Files (x86)\Common Files\VST3`
-  - Linux: `~/.vst3`, `/usr/lib/vst3`, `/usr/local/lib/vst3`
-- Supports both absolute paths and plugin names
+3. **Partial Result Recovery** (`eledubby recover` command)
+   - New `recover_partial_result()` method in CheckpointManager
+   - New `get_checkpoint_progress()` method for detailed progress info
+   - New `recover` CLI command to extract processed segments
+   - Creates audio with silence placeholders for missing segments
+   - 3 new tests for recovery functionality
 
-### 4. Audio Effects Processing
-- Added `_apply_audio_fx()` method using pedalboard
-- Loads VST3 plugins dynamically from TOML configuration
-- Applies plugins in the order specified
-- Robust error handling for missing plugins or invalid parameters
+### Previously This Session
+1. **Voice Preview Command** (`eledubby preview`)
+   - Lists available voices when no voice specified
+   - Generates TTS audio sample for voice testing
+   - Custom text and output path support
+   - Optional playback with ffplay (`--play` flag)
+   - 7 tests for preview functionality
 
-### 5. Configuration System
-- Created `src/eledubby/config.toml` with commented examples
-- Created `example_fx_config.toml` showing practical usage
-- TOML format allows easy parameter configuration for each plugin
+2. **README Documentation Update**
+   - Added `--resume` and `--denoise` options to dub command docs
+   - Added `checkpoints` command documentation
+   - Added `preview` command documentation
+   - Added examples for all new features
+   - Updated troubleshooting section
 
-### 6. Bug Fixes
-- Fixed `__main__.py` calling undefined `main` instead of `dub`
-- Updated `this_file` paths throughout the codebase
+3. **Performance Benchmarks** (`tests/test_eledubby/test_benchmarks.py`)
+   - Silence analyzer performance test (1 minute audio < 2s)
+   - Checkpoint serialization benchmarks
+   - Hash computation performance test (10MB < 0.5s)
+   - Progress tracker performance test
+   - ProcessingState serialization benchmarks
+   - Memory usage tests for large segment lists
+   - 5-minute audio processing test
+   - 7 benchmark tests total
 
-### 7. Documentation Updates
-- Updated README with VST3 plugin features
-- Added usage examples for new arguments
-- Documented plugin configuration format
-- Added system-specific plugin path information
+### Previously Completed
+1. **Checkpoint System** (`--resume` flag)
+   - Created `CheckpointManager` in `src/eledubby/utils/checkpoint.py`
+   - Saves processing state after each segment
+   - Allows resuming interrupted jobs
+   - Added `checkpoints` CLI command to list/clean checkpoints
+   - 16 tests for checkpoint functionality
 
-## Technical Details
+2. **Noise Reduction** (`--denoise` parameter)
+   - Added `reduce_noise()` and `reduce_noise_advanced()` to AudioProcessor
+   - Uses FFmpeg's `afftdn` (FFT-based) and `anlmdn` (non-local means) filters
+   - Strength parameter 0.0-1.0 for user control
+   - 6 tests for noise reduction
 
-### Audio Processing Pipeline
-Post-processing effects are applied:
-1. After all segments are converted by ElevenLabs
-2. After segments are concatenated
-3. After audio normalization
-4. Before remuxing with video
+## Next Priorities (from TODO.md)
 
-### Plugin Loading Process
-1. Parse TOML configuration file
-2. For each plugin section:
-   - Resolve plugin path (absolute or system search)
-   - Load VST3 using pedalboard.load_plugin()
-   - Set parameters from config
-   - Add to processing chain
-3. Apply all plugins in sequence to audio
+### High Value
+- [x] Memory usage optimization for large files (completed - streaming analysis)
+- [x] Memory usage monitoring (completed)
+- [x] Plugin preset management (completed)
+- [x] Automated quality checks (completed - `eledubby quality`)
 
-### Error Resilience
-- Missing plugins: Log warning, skip plugin
-- Invalid parameters: Log warning, use defaults
-- No plugins loaded: Use original audio
-- Processing failures: Fallback to unprocessed audio
-
-## Usage Examples
-
-### Basic usage with effects:
-```bash
-eledubby --input video.mp4 --output dubbed.mp4 --fx on
-```
-
-### Custom configuration:
-```bash
-eledubby --input video.mp4 --output dubbed.mp4 --fx ./my_effects.toml
-```
-
-### Adjust segment durations:
-```bash
-eledubby --input video.mp4 --output dubbed.mp4 --seg_min 5 --seg_max 15
-```
-
-### Combined options:
-```bash
-eledubby --input video.mp4 --output pro_dubbed.mp4 \
-  --voice custom_voice_id \
-  --fx ./voice_enhancement.toml \
-  --seg_min 8 --seg_max 18 \
-  --verbose
-```
-
-## Status
-✅ All requested features from Issue #301 have been implemented and integrated into the codebase.
+### Medium Value
+- [ ] AU (Audio Unit) plugin support on macOS
+- [ ] API documentation
+- [ ] Source language auto-detection
