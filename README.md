@@ -106,6 +106,7 @@ eledubby dub [OPTIONS]
 - `--input` (required): Path to the input video or audio file
 - `--output`: Path to the output file (default: auto-generated)
 - `--voice`: ElevenLabs voice ID (default: ELEVENLABS_VOICE_ID environment variable)
+- `--api_key`: ElevenLabs API key override (default: ELEVENLABS_API_KEY environment variable)
 - `--fx`: Audio post-processing effects:
   - `0`, `off`, or `False`: No post-processing
   - `1`, `on`, or `True`: Use default config from `src/eledubby/config.toml`
@@ -123,10 +124,25 @@ eledubby fx [OPTIONS]
 **Options:**
 - `--input` (required): Path to the input video or audio file
 - `--output`: Path to the output file (default: auto-generated with same format)
+- `--api_key`: ElevenLabs API key override (unused; for interface consistency)
 - `--config`: Path to TOML config file for VST3 plugins (default: src/eledubby/config.toml)
 - `--verbose`: Enable verbose logging
 
-#### 5.1.3. Examples
+#### 5.1.3. `cast` - Generate MP3s for Many Voices
+
+```bash
+eledubby cast --text_path TEXT.txt [OPTIONS]
+```
+
+**Options:**
+- `--text_path` (required): Path to the text file to synthesize
+- `--output`: Output folder path (default: `basename_without_extension(text_path)` in current directory)
+- `--api_key`: ElevenLabs API key override (default: ELEVENLABS_API_KEY environment variable)
+- `--voices_list`: Comma-separated voice IDs (e.g. `a,b,c`)
+- `--voices_path`: Text file with one voice per line; optionally `voice_id;api_key` per line
+- `--verbose`: Enable verbose logging
+
+#### 5.1.4. Examples
 
 **Dubbing Examples:**
 
@@ -169,6 +185,23 @@ Extract and process audio from video:
 ```bash
 eledubby fx --input video.mp4 --output audio_only.wav \
   --config ./mastering.toml
+```
+
+**Cast Examples:**
+
+Use all voices for the account:
+```bash
+eledubby cast --text_path script.txt --api_key YOUR_KEY
+```
+
+Use explicit voice IDs:
+```bash
+eledubby cast --text_path script.txt --voices_list a,b,c --api_key YOUR_KEY
+```
+
+Use a voices file (optional per-voice API key):
+```bash
+eledubby cast --text_path script.txt --voices_path voices.txt
 ```
 
 ### 5.2. Python API

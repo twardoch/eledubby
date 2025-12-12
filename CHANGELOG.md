@@ -1,5 +1,13 @@
 # CHANGELOG.md
 
+## [Unreleased]
+
+### Added
+- New `cast` command to synthesize a text file across multiple voices, supporting `--voices_list` and `--voices_path` (with optional per-line `voice_id;api_key`).
+
+### Changed
+- `dub` and `fx` commands accept optional `--api_key` to override `ELEVENLABS_API_KEY` (unused for `fx`).
+
 ## [0.2.0] - 2025-08-05
 
 ### Added

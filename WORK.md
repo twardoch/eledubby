@@ -2,6 +2,13 @@
 
 ## Latest Work - Enhanced Audio/Video Support and FX Function
 
+### In Progress / Just Done - `cast` command + API key overrides
+
+- Added `cast` CLI command to synthesize a text file to MP3 across multiple voices.
+- Added optional `--api_key` to `dub`, `fx`, and `cast` (overrides `ELEVENLABS_API_KEY`).
+- `cast --voices_path` supports per-line `voice_id;api_key` for multi-account voice sets.
+- Tests: `pytest` (6 tests) passing locally.
+
 ### New Features Added
 
 1. **`fx` Function**: Apply audio effects without dubbing
