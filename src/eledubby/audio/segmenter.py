@@ -1,5 +1,11 @@
 # this_file: audio/segmenter.py
-"""Audio segmentation module."""
+"""
+Audio segmentation module.
+
+Splits an audio file into smaller segments based on timestamps, and recombines
+them later. We segment the audio because ElevenLabs APIs have text length limits,
+so we process the audio piece by piece.
+"""
 
 import os
 

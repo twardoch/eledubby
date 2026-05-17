@@ -5,10 +5,11 @@
 # this_file: src/eledubby/eledubby.py
 
 """
-eledubby - Voice dubbing tool using ElevenLabs speech-to-speech API.
+eledubby - Voice and video dubbing tool using the ElevenLabs speech-to-speech API.
 
-Takes an input video and replaces the audio with a new voice using ElevenLabs API.
-Performs intelligent audio segmentation and maintains perfect timing synchronization.
+This script isolates speech from an input file, replaces the voice using ElevenLabs,
+and perfectly synchronizes the new audio to the original timing. It handles audio
+segmentation, limits, format conversion, and video remuxing automatically.
 """
 
 import glob as glob_module

@@ -1,5 +1,10 @@
 # this_file: src/eledubby/utils/checkpoint.py
-"""Checkpoint system for resume capability."""
+"""
+Checkpoint system for resume capability.
+
+Saves progress (segment by segment) to disk so that if the script crashes,
+gets rate-limited, or stops halfway, you can pick up where you left off.
+"""
 
 import hashlib
 import json

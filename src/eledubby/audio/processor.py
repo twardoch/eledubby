@@ -1,5 +1,11 @@
 # this_file: audio/processor.py
-"""Audio processing module for timing preservation."""
+"""
+Audio processing module for timing preservation.
+
+Provides the `AudioProcessor` class which measures, pads, trims, and adjusts audio
+duration so the newly generated speech matches the exact timing of the original speech.
+Also includes optional FX methods like compression and normalization.
+"""
 
 import numpy as np
 from loguru import logger

@@ -1,5 +1,10 @@
 # this_file: video/remuxer.py
-"""Video remuxing module."""
+"""
+Video remuxing module.
+
+Replaces the original audio track in a video with the newly generated audio.
+It uses `ffmpeg` to multiplex (remux) the video and audio streams together.
+"""
 
 import subprocess
 

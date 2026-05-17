@@ -1,5 +1,10 @@
 # this_file: src/eledubby/api/elevenlabs_client.py
-"""ElevenLabs API client wrapper."""
+"""
+ElevenLabs API client wrapper.
+
+Manages API calls to ElevenLabs, handling retries, backoffs on rate limits, and
+fetching the voice list. We use this for text-to-speech and speech-to-speech (dubbing).
+"""
 
 import os
 import time
