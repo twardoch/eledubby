@@ -89,7 +89,7 @@ class AudioQualityChecker:
         """
         # Load audio using pedalboard (returns float32 in [-1, 1])
         with AudioFile(audio_path) as f:
-            sample_rate = f.samplerate
+            sample_rate = int(f.samplerate)
             channels = f.num_channels
             audio_data = f.read(f.frames)
             duration = f.duration
@@ -120,7 +120,7 @@ class AudioQualityChecker:
         crest_factor = peak / rms if rms > 0 else 0
 
         # DC offset
-        dc_offset = np.mean(audio_mono)
+        dc_offset = float(np.mean(audio_mono))
 
         # Clipping detection
         clipping_samples = np.sum(np.abs(audio_mono) >= self.CLIPPING_THRESHOLD)

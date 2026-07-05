@@ -4,6 +4,7 @@
 import os
 import shutil
 import tempfile
+from collections.abc import Iterator
 from contextlib import contextmanager
 
 from loguru import logger
@@ -12,7 +13,7 @@ from loguru import logger
 class TempFileManager:
     """Manages temporary files and directories."""
 
-    def __init__(self, prefix: str = "adamdubpy_"):
+    def __init__(self, prefix: str = "adamdubpy_") -> None:
         """Initialize temp file manager.
 
         Args:
@@ -22,7 +23,7 @@ class TempFileManager:
         self.temp_dirs: list[str] = []
 
     @contextmanager
-    def temp_directory(self, cleanup: bool = True):
+    def temp_directory(self, cleanup: bool = True) -> Iterator[str]:
         """Create and manage a temporary directory.
 
         Args:
@@ -41,7 +42,7 @@ class TempFileManager:
             if cleanup:
                 self.cleanup_directory(temp_dir)
 
-    def cleanup_directory(self, directory: str):
+    def cleanup_directory(self, directory: str) -> None:
         """Clean up a temporary directory.
 
         Args:
@@ -56,7 +57,7 @@ class TempFileManager:
             except Exception as e:
                 logger.warning(f"Failed to cleanup {directory}: {e}")
 
-    def cleanup_all(self):
+    def cleanup_all(self) -> None:
         """Clean up all tracked temporary directories."""
         for directory in self.temp_dirs[:]:
             self.cleanup_directory(directory)

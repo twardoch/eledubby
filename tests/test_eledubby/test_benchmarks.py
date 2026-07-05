@@ -8,7 +8,8 @@ from pathlib import Path
 
 import numpy as np
 import pytest
-from scipy.io import wavfile
+
+from .wav_helpers import write_wav
 
 
 class TestBenchmarks:
@@ -25,7 +26,7 @@ class TestBenchmarks:
         audio = (audio * 32767).astype(np.int16)
 
         wav_path = tmp_path / "test_audio.wav"
-        wavfile.write(str(wav_path), sample_rate, audio)
+        write_wav(str(wav_path), sample_rate, audio)
         return wav_path
 
     def test_silence_analyzer_performance(self, sample_wav_file: Path) -> None:
@@ -197,7 +198,7 @@ class TestMemoryUsage:
         audio = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
 
         wav_path = tmp_path / "long_audio.wav"
-        wavfile.write(str(wav_path), sample_rate, audio)
+        write_wav(str(wav_path), sample_rate, audio)
 
         analyzer = SilenceAnalyzer()
 
@@ -225,7 +226,7 @@ class TestMemoryMonitoring:
         audio = (np.sin(2 * np.pi * 440 * t) * 32767).astype(np.int16)
 
         wav_path = tmp_path / "memory_test_audio.wav"
-        wavfile.write(str(wav_path), sample_rate, audio)
+        write_wav(str(wav_path), sample_rate, audio)
 
         analyzer = SilenceAnalyzer()
 

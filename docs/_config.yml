@@ -1,0 +1,19 @@
+# this_file: docs/_config.yml
+title: eledubby
+description: Dub video and audio with a new ElevenLabs voice while keeping timing locked to the original.
+remote_theme: just-the-docs/just-the-docs
+url: https://twardoch.github.io/eledubby
+
+color_scheme: light
+
+aux_links:
+  "GitHub":
+    - https://github.com/twardoch/eledubby
+  "PyPI":
+    - https://pypi.org/project/eledubby/
+
+footer_content: "eledubby is released under the MIT license."
+
+plugins:
+  - jekyll-remote-theme
+  - jekyll-seo-tag

@@ -330,7 +330,7 @@ class CheckpointManager:
         Returns:
             List of checkpoint info dicts
         """
-        checkpoints = []
+        checkpoints: list[dict] = []
         if not self.checkpoint_dir.exists():
             return checkpoints
 
@@ -399,7 +399,7 @@ class CheckpointManager:
         output_path = Path(output_path)
         concat_file = output_path.parent / f".{output_path.stem}_concat.txt"
 
-        segments_info = []
+        segments_info: list[tuple[str, str | float]] = []
         for idx in range(len(state.segments)):
             start, end = state.segments[idx]
             duration = end - start
@@ -412,14 +412,14 @@ class CheckpointManager:
                 segments_info.append(("silence", duration))
 
         # Write concat file and generate silence segments as needed
-        temp_silence_files = []
+        temp_silence_files: list[Path] = []
         with open(concat_file, "w", encoding="utf-8") as f:
             for item_type, item_value in segments_info:
                 if item_type == "file":
                     f.write(f"file '{item_value}'\n")
                 else:
                     # Generate a temporary silence file
-                    duration = item_value
+                    duration = float(item_value)
                     silence_file = output_path.parent / f".silence_{len(temp_silence_files)}.wav"
                     temp_silence_files.append(silence_file)
 

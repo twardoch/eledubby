@@ -118,7 +118,7 @@ class EleDubby:
         self.temp_manager = TempFileManager()
         self.checkpoint_manager = CheckpointManager()
 
-    def _setup_logging(self):
+    def _setup_logging(self) -> None:
         """Configure logging based on verbose flag."""
         logger.remove()  # Remove default handler
 
@@ -131,7 +131,7 @@ class EleDubby:
         else:
             logger.add(sys.stderr, format="<level>{message}</level>", level="INFO")
 
-    def _check_dependencies(self, require_elevenlabs: bool = True):
+    def _check_dependencies(self, require_elevenlabs: bool = True) -> None:
         """Check for required system dependencies.
 
         Args:
@@ -390,10 +390,10 @@ class EleDubby:
     def process(
         self,
         input: str,
-        voice: str = DEFAULT_VOICE_ID,
+        voice: str | None = DEFAULT_VOICE_ID,
         output: str | None = None,
         fx: str | bool | None = None,
-    ):
+    ) -> None:
         """Process a video or audio file with voice dubbing.
 
         Args:
@@ -407,6 +407,13 @@ class EleDubby:
         # Validate input
         if not os.path.exists(input):
             console.print(f"[red]Error: Input file not found: {input}[/red]")
+            sys.exit(1)
+
+        # A voice ID is mandatory at runtime; narrow away the env-var None default.
+        if voice is None:
+            console.print(
+                "[red]Error: No voice ID provided. Pass --voice or set ELEVENLABS_VOICE_ID.[/red]"
+            )
             sys.exit(1)
 
         # Determine if input is video or audio
@@ -455,7 +462,9 @@ class EleDubby:
         console.print("Validating voice ID...")
         if not self.elevenlabs_client.validate_voice_id(voice):
             console.print(f"[yellow]Warning: Voice ID '{voice}' not found, using default[/yellow]")
-            voice = DEFAULT_VOICE_ID
+            # Fall back to the env default only when it is set; otherwise keep the
+            # already-validated (non-None) voice so the type stays str.
+            voice = DEFAULT_VOICE_ID or voice
 
         # Check disk space
         estimated_space = self.temp_manager.estimate_space_needed(input)
@@ -773,7 +782,7 @@ def _expand_input_paths(input_pattern: str | Path) -> list[Path]:
 
 def dub(
     input: str | Path,
-    voice: str = DEFAULT_VOICE_ID,
+    voice: str | None = DEFAULT_VOICE_ID,
     output: str | Path | None = None,
     api_key: str | None = None,
     verbose: bool = False,
@@ -787,7 +796,7 @@ def dub(
     compress: bool = False,
     resume: bool = False,
     denoise: float = 0.0,
-):
+) -> None:
     """eledubby - Voice dubbing tool using ElevenLabs speech-to-speech API.
 
     Args:
@@ -882,7 +891,7 @@ def dub(
         resume=resume,
         denoise=denoise,
     )
-    dubber.process(str(input_files[0]), voice, output, fx)
+    dubber.process(str(input_files[0]), voice, str(output) if output is not None else None, fx)
 
 
 def fx(
@@ -891,7 +900,7 @@ def fx(
     api_key: str | None = None,
     config: str | None = None,
     verbose: bool = False,
-):
+) -> None:
     """Apply audio effects to a video or audio file without dubbing.
 
     Args:
@@ -909,6 +918,10 @@ def fx(
     if not os.path.exists(input):
         console.print(f"[red]Error: Input file not found: {input}[/red]")
         sys.exit(1)
+
+    # Downstream helpers operate on plain str paths; coerce the str | Path inputs once.
+    input = str(input)
+    output = str(output) if output is not None else None
 
     # Determine if input is video or audio
     is_input_video = processor._is_video_file(input)
@@ -1125,6 +1138,7 @@ def cast(
 
     # voice_specs: list of (voice_id, api_key, voice_name)
     # voice_name is used for slug in filename, can be None for explicit lists
+    voice_specs: list[tuple[str, str | None, str | None]]
     if voices_list:
         # Explicit list: (voice_id, api_key, None)
         parsed = _parse_voice_specs_from_voices_list(voices_list)
@@ -1324,12 +1338,12 @@ def _resolve_plugin_by_name(plugin_name: str) -> str | None:
             p["name"].lower() == plugin_name_lower
             or p["name"].lower() == plugin_name_lower + ".vst3"
         ):
-            return p["path"]
+            return str(p["path"])
 
     # Partial match
     for p in plugin_list:
         if plugin_name_lower in p["name"].lower():
-            return p["path"]
+            return str(p["path"])
 
     return None
 

@@ -4,9 +4,18 @@
 
 ### Added
 - New `cast` command to synthesize a text file across multiple voices, supporting `--voices_list` and `--voices_path` (with optional per-line `voice_id;api_key`).
+- Tag-triggered `release.yml` workflow: `uv build` → PyPI publish via OIDC trusted publishing → GitHub release.
+- Jekyll (Just the Docs) documentation site under `docs/` with a project icon.
+- README sections on ElevenLabs credit cost and a project illustration.
 
 ### Changed
 - `dub` and `fx` commands accept optional `--api_key` to override `ELEVENLABS_API_KEY` (unused for `fx`).
+- Modernization pass: full strict `mypy` clean (42 errors fixed), added explanatory comments for the silence composite score and the padding/trim tolerance, and added a `mypy` type-check step to CI.
+- Migrated `pyproject.toml` from the deprecated `[tool.uv] dev-dependencies` to `[dependency-groups]`; trimmed classifiers to the supported Python 3.12/3.13.
+- CI: dropped the broken third-party ffmpeg action for direct apt/brew installs, bumped `setup-uv` to v5, and reduced the matrix to Python 3.12/3.13.
+
+### Fixed
+- Test suite no longer depends on `scipy`; WAV fixtures now use a stdlib `wave` helper, restoring green collection (158 tests pass).
 
 ## [0.2.0] - 2025-08-05
 

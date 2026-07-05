@@ -21,7 +21,7 @@ from eledubby.eledubby import (
 )
 
 
-def cli():
+def cli() -> None:
     commands = {
         "dub": dub,
         "fx": fx,

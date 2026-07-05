@@ -72,12 +72,16 @@ class SilenceAnalyzer:
 
         logger.debug(f"Loaded audio: {len(audio_data) / sample_rate:.2f}s at {sample_rate}Hz")
 
-        # Find silence points
-        silence_scores = self._calculate_silence_scores(audio_data, sample_rate)
+        # Find silence points (sample_rate is a frame count per second: coerce to int)
+        silence_scores = self._calculate_silence_scores(audio_data, int(sample_rate))
 
         # Find optimal split points
         segments = self._find_optimal_segments(
-            silence_scores, sample_rate, min_duration, max_duration, len(audio_data) / sample_rate
+            silence_scores,
+            int(sample_rate),
+            min_duration,
+            max_duration,
+            len(audio_data) / sample_rate,
         )
 
         logger.info(f"Found {len(segments)} segments")
@@ -155,7 +159,7 @@ class SilenceAnalyzer:
 
         # Find optimal split points
         segments = self._find_optimal_segments(
-            silence_scores, sample_rate, min_duration, max_duration, total_duration
+            silence_scores, int(sample_rate), min_duration, max_duration, total_duration
         )
 
         logger.info(f"Found {len(segments)} segments (streaming)")
@@ -216,7 +220,7 @@ class SilenceAnalyzer:
         Returns:
             List of (start_time, end_time) tuples
         """
-        segments = []
+        segments: list[tuple[float, float]] = []
         current_start = 0.0
 
         while current_start < total_duration:
@@ -233,12 +237,15 @@ class SilenceAnalyzer:
                 break
 
             # Find highest scoring silence point in window
-            best_score = -1
+            best_score = -1.0
             best_time = window_end
 
             for time, score in silence_scores:
                 if window_start <= time <= window_end:
-                    # Add position weight (prefer middle of window)
+                    # Composite boundary score: a good cut is mostly silent (score, 70%)
+                    # and sits near the center of the [min, max] window (position_weight,
+                    # 30%) so segment lengths cluster around the target duration rather
+                    # than snapping to the first quiet frame.
                     position_weight = 1.0 - abs(time - (window_start + window_end) / 2) / (
                         max_duration / 2
                     )

@@ -158,7 +158,8 @@ class VideoRemuxer:
             import json
 
             try:
-                return json.loads(result.stdout)
+                metadata: dict = json.loads(result.stdout)
+                return metadata
             except json.JSONDecodeError:
                 logger.warning("Could not parse video metadata")
                 return {}

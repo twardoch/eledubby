@@ -2,6 +2,8 @@
 
 Dub video and audio files with a new voice using the ElevenLabs speech-to-speech API. Timing stays locked to the original.
 
+![eledubby](docs/assets/icon.png)
+
 ## The problem
 
 ElevenLabs produces excellent synthetic voices. But when you send it a 3-minute audio clip, two things happen: it rejects anything over its input size limit, and the converted audio almost never comes back at exactly the same duration. Paste the result into your video and it immediately drifts out of sync.
@@ -88,6 +90,10 @@ eledubby dub <input> <output> [options]
   --resume              Resume from a saved checkpoint
   --verbose             Show detailed progress
 ```
+
+## Cost
+
+ElevenLabs bills speech-to-speech per second of audio processed. Dubbing a full video converts the entire soundtrack, so budget for roughly the clip's whole runtime in credits — a 5-minute video costs about 5 minutes of speech-to-speech. Use `--preview N` to convert only the first N seconds while you settle on a voice before committing to the full job.
 
 ## Checkpointing
 

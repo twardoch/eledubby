@@ -4,65 +4,78 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 1. Project Overview
 
-`adamdubpy` is a Python tool for voice dubbing that:
-- Takes an input video and replaces the audio with a new voice using ElevenLabs API
-- Performs speech-to-speech conversion on audio segments
-- Splits audio into 10-20 second segments based on silence detection
-- Preserves timing by padding or cropping converted segments
+`eledubby` is a Python CLI (package name `eledubby`, installed via `pip install eledubby`) for voice dubbing that:
+- Takes an input video or audio file and replaces the voice using the ElevenLabs speech-to-speech API
+- Splits audio at silences into 10–20 second segments so each one fits the API's input limit
+- Pads or trims each converted segment to match the original duration, so timing never drifts
+- Reassembles the segments and remuxes the result back into the original container
+
+Distribution: `hatch-vcs` dynamic version from git tags, `src/eledubby/` layout, published to PyPI. CLI entry point is `eledubby.__main__:cli` (built on `fire`).
 
 ## 2. Required Environment Variables
 
-- `ELEVENLABS_API_KEY` - Must be set for the ElevenLabs API authentication (loaded via python-dotenv)
+- `ELEVENLABS_API_KEY` — ElevenLabs API authentication (loaded via `python-dotenv`); can also be passed with `--api_key`.
+- `ELEVENLABS_VOICE_ID` — default target voice ID; overridable with `--voice-id`.
 
 ## 3. Key Dependencies
 
-- **elevenlabs-python**: Main package for speech-to-speech conversion
-- **python-dotenv**: For loading environment variables
-- **ffmpeg**: Required for video/audio processing (must be installed on system)
+- **elevenlabs** (>=2.8.1): speech-to-speech and text-to-speech
+- **python-dotenv**: `.env` loading
+- **numpy**: audio buffer math (silence scoring, padding/trimming)
+- **pedalboard**: optional VST3 audio effects for the `fx` command
+- **rich** / **loguru**: console output and verbose logging
+- **fire**: CLI dispatch
+- **ffmpeg**: system requirement for demux/remux (must be on PATH)
 
 ## 4. Development Commands
 
 ### 4.1. Setup
 ```bash
-# Install dependencies
-pip install elevenlabs python-dotenv
-
-# Set up environment
-echo "ELEVENLABS_API_KEY=your_api_key_here" > .env
+uv sync --all-extras          # create venv, install runtime + dev deps
+echo "ELEVENLABS_API_KEY=sk_..." > .env
 ```
 
-### 4.2. Running the Tool
+### 4.2. Running the tool
 ```bash
-python adamdubpy.py --input video.mp4 --voice voice_id --output output.mp4
+uv run eledubby dub input.mp4 output.mp4 --voice-id VOICE_ID
+uv run eledubby voices          # list available voices
+uv run eledubby preview VOICE   # sample a voice
 ```
 
-Default voice ID: `ELEVENLABS_VOICE_ID` environment variable
+### 4.3. Checks
+```bash
+uv run ruff check .
+uv run ruff format --check .
+uv run mypy src/eledubby
+uv run pytest tests/ -v
+```
+
+Tests mock the ElevenLabs API end to end — they never make live calls and need no API key. Tests that exercise the audio pipeline require `ffmpeg` on PATH.
 
 ## 5. Code Architecture
 
-### 5.1. Audio Processing Pipeline
-1. **Audio Extraction**: Extract audio from input video
-2. **Silence Detection**: Identify split points based on silence (scoring system for silence duration and length)
-3. **Segmentation**: Split audio into 10-20 second segments at optimal silence points
-4. **Speech-to-Speech**: Convert each segment using ElevenLabs API with specified voice
-5. **Timing Preservation**: Pad or crop converted segments to match original timing
-6. **Audio Reassembly**: Combine processed segments
-7. **Video Remuxing**: Replace original audio track with processed audio
+Source lives under `src/eledubby/`:
 
-### 5.2. Key Implementation Details
-- Segments must be between 10-20 seconds
-- Within each 10-20 second window, find the "most silent long pause"
-- Score pauses based on both silence level and duration
-- Use ElevenLabs speech-to-speech API for voice conversion
-- Maintain exact timing alignment with original video
+- `eledubby.py` — CLI commands (`dub`, `fx`, `cast`, `voices`, `preview`) and the `EleDubby` orchestrator
+- `audio/extractor.py` — ffmpeg audio extraction to 16 kHz mono WAV
+- `audio/analyzer.py` — silence detection and composite scoring of split points
+- `audio/segmenter.py` — cuts the audio into 10–20 s segments at the best silences
+- `audio/processor.py` — pads/trims converted segments to match original timing
+- `audio/quality.py` — loudness/quality reporting
+- `api/elevenlabs_client.py` — ElevenLabs wrapper with retry/backoff
+- `video/remuxer.py` — swaps the dubbed audio back into the video container
+- `utils/checkpoint.py` — resumable job state for `--resume`
+- `utils/temp_manager.py`, `utils/progress.py` — temp dirs and progress UI
+
+### 5.1. Pipeline
+Extract → detect silences → segment (10–20 s) → speech-to-speech per segment → pad/trim to original duration → concatenate → remux.
 
 ## 6. Important Notes
 
-- The main script file should be named `adamdubpy.py` (if creating from scratch)
-- Reference documentation is available in `ref/` directory but contains very large files
-- Always check for ffmpeg availability before processing
-- Handle API errors gracefully with retry logic
-- Preserve original video quality during remuxing
+- Check for `ffmpeg` at startup before processing.
+- Handle API errors gracefully with retry/backoff (see `api/elevenlabs_client.py`).
+- Remux without re-encoding the video stream to preserve quality.
+- Every source file carries a `this_file:` header comment.
 
 
 

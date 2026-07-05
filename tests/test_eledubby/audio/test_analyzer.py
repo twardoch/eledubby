@@ -148,9 +148,9 @@ class TestSilenceAnalyzer:
         assert 14.0 <= segments[0][1] <= 16.0
 
     def test_analyze_when_wav_file_then_returns_segments(self, tmp_path: Path) -> None:
-        from scipy.io import wavfile
-
         from eledubby.audio.analyzer import SilenceAnalyzer
+
+        from ..wav_helpers import write_wav
 
         analyzer = SilenceAnalyzer()
 
@@ -163,7 +163,7 @@ class TestSilenceAnalyzer:
         audio[int(12 * sample_rate) : int(13 * sample_rate)] = 0  # Silence at 12-13s
 
         wav_path = tmp_path / "test.wav"
-        wavfile.write(str(wav_path), sample_rate, (audio * 32767).astype(np.int16))
+        write_wav(str(wav_path), sample_rate, (audio * 32767).astype(np.int16))
 
         segments = analyzer.analyze(str(wav_path), min_duration=10.0, max_duration=20.0)
 

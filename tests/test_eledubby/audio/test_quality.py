@@ -3,9 +3,10 @@
 
 import numpy as np
 import pytest
-from scipy.io import wavfile
 
 from eledubby.audio.quality import AudioQualityChecker, QualityReport
+
+from ..wav_helpers import write_wav
 
 
 class TestAudioQualityChecker:
@@ -27,7 +28,7 @@ class TestAudioQualityChecker:
         audio_int16 = (audio * 32767).astype(np.int16)
 
         audio_path = tmp_path / "clean.wav"
-        wavfile.write(str(audio_path), sample_rate, audio_int16)
+        write_wav(str(audio_path), sample_rate, audio_int16)
         return str(audio_path)
 
     @pytest.fixture
@@ -42,7 +43,7 @@ class TestAudioQualityChecker:
         audio_int16 = (audio * 32767).astype(np.int16)
 
         audio_path = tmp_path / "clipped.wav"
-        wavfile.write(str(audio_path), sample_rate, audio_int16)
+        write_wav(str(audio_path), sample_rate, audio_int16)
         return str(audio_path)
 
     @pytest.fixture
@@ -57,7 +58,7 @@ class TestAudioQualityChecker:
         audio_int16 = (audio * 32767).astype(np.int16)
 
         audio_path = tmp_path / "silent.wav"
-        wavfile.write(str(audio_path), sample_rate, audio_int16)
+        write_wav(str(audio_path), sample_rate, audio_int16)
         return str(audio_path)
 
     @pytest.fixture
@@ -71,7 +72,7 @@ class TestAudioQualityChecker:
         audio_int16 = (audio * 32767).astype(np.int16)
 
         audio_path = tmp_path / "dc_offset.wav"
-        wavfile.write(str(audio_path), sample_rate, audio_int16)
+        write_wav(str(audio_path), sample_rate, audio_int16)
         return str(audio_path)
 
     def test_analyze_clean_audio(self, checker, clean_audio_file):
@@ -146,7 +147,7 @@ class TestAudioQualityChecker:
         audio_int16 = (audio * 32767).astype(np.int16)
 
         audio_path = tmp_path / "stereo.wav"
-        wavfile.write(str(audio_path), sample_rate, audio_int16)
+        write_wav(str(audio_path), sample_rate, audio_int16)
 
         report = checker.analyze(str(audio_path))
 
@@ -167,7 +168,7 @@ class TestAudioQualityChecker:
 
         audio_int16 = (audio * 32767).astype(np.int16)
         audio_path = tmp_path / "moderate_clip.wav"
-        wavfile.write(str(audio_path), sample_rate, audio_int16)
+        write_wav(str(audio_path), sample_rate, audio_int16)
 
         # Default checker should detect clipping
         default = AudioQualityChecker()

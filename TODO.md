@@ -1,5 +1,18 @@
 # TODO.md - Eledubby Future Implementation Tasks
 
+## Modernization pass (2026-07)
+
+- [x] Strict `mypy` clean across `src/eledubby` (42 errors fixed)
+- [x] Drop `scipy` from tests (stdlib `wave` helper); 158 tests green
+- [x] Migrate `pyproject.toml` to `[dependency-groups]`; trim classifiers to 3.12/3.13
+- [x] CI: add `mypy` step, fix ffmpeg install, bump `setup-uv` to v5
+- [x] Add tag-triggered `release.yml` (uv build → PyPI OIDC → GitHub release)
+- [x] Jekyll (Just the Docs) `docs/` site + project icon
+- [x] README: credit-cost note + illustration; refresh `CLAUDE.md`
+- [ ] Add a `--dry-run` flag that prints the planned segments without calling the API
+- [ ] Startup check that `ffmpeg` is present before any processing (fail fast, clear message)
+- [ ] Document where the `--resume` checkpoint temp directory lives
+
 ## Performance and Reliability
 
 - [x] Implement parallel segment processing for faster conversion

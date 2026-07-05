@@ -51,7 +51,9 @@ class AudioProcessor:
         )
 
         if abs(difference) < 0.05:  # Within 50ms tolerance
-            # Close enough, just copy
+            # A <50ms drift is below the threshold of audible lip-sync error, so we
+            # copy the segment as-is: padding or trimming here would splice silence
+            # or clip speech for no perceptible timing gain.
             self._copy_audio(audio_path, output_path)
             return output_path
 

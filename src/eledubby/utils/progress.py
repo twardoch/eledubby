@@ -1,6 +1,7 @@
 # this_file: utils/progress.py
 """Progress tracking utilities."""
 
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
 from rich.console import Console
@@ -17,12 +18,14 @@ from rich.progress import (
 class ProgressTracker:
     """Unified progress tracking for the application."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize progress tracker."""
         self.console = Console()
 
     @contextmanager
-    def track_segments(self, total: int, description: str = "Processing segments"):
+    def track_segments(
+        self, total: int, description: str = "Processing segments"
+    ) -> Iterator[Callable[..., None]]:
         """Track progress for segment processing.
 
         Args:
@@ -42,7 +45,7 @@ class ProgressTracker:
         ) as progress:
             task = progress.add_task(description, total=total)
 
-            def update(advance: int = 1, description: str | None = None):
+            def update(advance: int = 1, description: str | None = None) -> None:
                 if description:
                     progress.update(task, description=description)
                 progress.advance(task, advance)
@@ -50,7 +53,7 @@ class ProgressTracker:
             yield update
 
     @contextmanager
-    def track_file_operation(self, description: str):
+    def track_file_operation(self, description: str) -> Iterator[Progress]:
         """Track a file operation with spinner.
 
         Args:
@@ -68,7 +71,7 @@ class ProgressTracker:
             yield progress
             progress.update(task, completed=True)
 
-    def print_summary(self, stats: dict):
+    def print_summary(self, stats: dict) -> None:
         """Print processing summary.
 
         Args:
